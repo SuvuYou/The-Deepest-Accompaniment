@@ -25,10 +25,10 @@ class Trainer:
 
     def _load_mappings(self):
         with open(self.constants.MELODY_MAPPINGS_PATH, "r") as fp:
-            self.melody_mappings = json.load(fp)['mappings']
+            self.melody_mappings = json.load(fp)
             
         with open(self.constants.CHORDS_MAPPINGS_PATH, "r") as fp:
-            self.chords_mappings = json.load(fp)['mappings']    
+            self.chords_mappings = json.load(fp)  
 
     def _init_class_weights(self):
         self.melody_class_weights = self._compute_class_weights(self.melody_mappings)
@@ -73,7 +73,7 @@ class Trainer:
         melody_optimizer = torch.optim.Adam(self.melody_model.parameters(), lr=self.model_settings["LR"])
         chords_optimizer = torch.optim.Adam(self.chords_model.parameters(), lr=self.model_settings["LR"])
         
-        num_epochs = self.constants.MODEL_SETTINGS['num_epochs']      
+        num_epochs = self.model_settings['num_epochs']      
 
         for epoch in range(num_epochs):
             melody_accuracy, chords_accuracy = self._train_epoch(data_loader, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer)
@@ -86,8 +86,7 @@ class Trainer:
         total_melody_correct, total_melody_samples = 0, 0
         total_chords_correct, total_chords_samples = 0, 0
 
-        for batch_idx, ((melody_batches, chords_batches, chords_context_batches, video_batches), 
-                        (melody_target_batches, chords_target_batches)) in enumerate(data_loader):
+        for batch_idx, ((melody_batches, chords_batches, chords_context_batches, video_batches), (melody_target_batches, chords_target_batches)) in enumerate(data_loader):
             if batch_idx % 50 == 0:
                 print(f"Processing batch {batch_idx}")
 
@@ -95,12 +94,12 @@ class Trainer:
                 melody, chords, chords_context, video = self._to_device(melody_batches[i], chords_batches[i], chords_context_batches[i], video_batches[i])
                 melody_target, chords_target = self._to_device(melody_target_batches[i], chords_target_batches[i])
 
-                self._optimize_step(melody, chords, chords_context, video, melody_target, chords_target, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer)
+                melody_output, chords_output = self._optimize_step(melody, chords, chords_context, video, melody_target, chords_target, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer)
 
                 total_melody_samples += melody_target.size(0)
                 total_chords_samples += chords_target.size(0)
-                total_melody_correct += self._compute_accuracy(melody, melody_target)
-                total_chords_correct += self._compute_accuracy(chords, chords_target)
+                total_melody_correct += self._compute_accuracy(melody_output, melody_target)
+                total_chords_correct += self._compute_accuracy(chords_output, chords_target)
                 
         return (total_melody_correct / total_melody_samples) * 100, (total_chords_correct / total_chords_samples) * 100
 
@@ -118,11 +117,14 @@ class Trainer:
         chords_optimizer.step()
         melody_loss.backward()
         melody_optimizer.step()
+        
+        return melody_output, chords_output
 
     def _compute_accuracy(self, output, target):
-        _, predicted = torch.max(output, 1)
+        _, predicted = torch.max(output, dim=1)
         output_binary = torch.zeros_like(output)
         output_binary.scatter_(1, predicted.view(-1, 1), 1)
+        
         return (output_binary == target).all(dim=1).sum().item()
 
     def _to_device(self, *args):

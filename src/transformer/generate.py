@@ -4,7 +4,7 @@ from Models.Generator import Generator
 from Models.ModelSettings import ModelSettings
 from Processing.const import CONSTANTS
 import torch
-from Models.ModelModules import MelodyLSTM, ChordsLSTM
+from transformer.Models.ModelModules import MelodyLSTM, ChordsLSTM
 
 def init_seed(type):
     videoProcessor = VideoProcessor(CONSTANTS.DEVICE)

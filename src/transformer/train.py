@@ -18,7 +18,7 @@ MODEL_SETTINGS = modelSettings.get_model_settings()
 melody_generation_model = MelodyLSTM(**MODEL_SETTINGS['melody']).to(CONSTANTS.DEVICE)
 chords_generation_model = ChordsLSTM(**MODEL_SETTINGS['chords']).to(CONSTANTS.DEVICE)
 
-trainer = Trainer(melody_generation_model, chords_generation_model, modelSettings, CONSTANTS, starting_weights_idx = -1)
+trainer = Trainer(melody_generation_model, chords_generation_model, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = -1)
 
 melody_updates = {
     '_': 185,
@@ -41,7 +41,7 @@ chords_updates = {
 trainer.update_melody_class_weights(melody_updates)
 trainer.update_chords_class_weights(chords_updates)
 
-dataset = MidiDatasetLoader()
+dataset = MidiDatasetLoader(video_data_chunks_save_path = CONSTANTS.VIDEO_CHUNKS_SAVE_PATH, music_data_chunks_save_path = CONSTANTS.MUSIC_DATA_CHUNKS_SAVE_PATH)
 data_loader = torch.utils.data.DataLoader(dataset, batch_size=6, shuffle=True)  
         
 trainer.train(data_loader)

@@ -21,7 +21,6 @@ class Generator:
         with open(self.CONSTANTS.CHORDS_CONTEXT_MAPPINGS_PATH, "r") as fp:
             self._chords_context_mappings = json.load(fp)['mappings'] 
 
-
     def generate(self, melody_seed, chords_seed, chords_context_seed, video, num_steps, max_sequence_length, temperature):
         with torch.no_grad():
             melody_seed = melody_seed.split()
