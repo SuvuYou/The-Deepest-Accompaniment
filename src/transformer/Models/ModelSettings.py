@@ -11,14 +11,25 @@ class ModelSettings:
             "chords_transformer":
             {
                 "chord_dim": self.classes_size["chords"], 
-                "video_out_dim": 256, 
-                "num_layers": 16, 
-                "num_decoder_layers": 32, 
+                "video_out_dim": 128, 
+                "num_encoder_layers": 8, 
+                "num_decoder_layers": 16, 
                 "nhead": 16, 
-                "d_model": 256, 
+                "d_model": 128, 
                 "dim_feedforward": 2048,
             },
-            "LR": 0.0001,
+            "melody_transformer":
+            {
+                "melody_dim": self.classes_size["melody"], 
+                "chord_context_dim": self.classes_size["chords_context"], 
+                "video_out_dim": 128, 
+                "num_encoder_layers": 8, 
+                "num_decoder_layers": 16, 
+                "nhead": 16, 
+                "d_model": 128, 
+                "dim_feedforward": 2048,
+            },
+            "LR": 0.001,
             "num_epochs": 15
         }
         

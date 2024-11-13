@@ -2,7 +2,7 @@ import torch
 from Processing.VideoProcessor import VideoProcessor
 from Processing.SongsMapper import SongsMapper
 from Models.Generator import Generator
-from Models.ModelModules import ChordGeneratorTransformer
+from Models.ModelModules import ChordGeneratorTransformer, MelodyGeneratorTransformer
 from Models.ModelSettings import ModelSettings
 from Processing.const import CONSTANTS
 
@@ -45,16 +45,22 @@ def init_seed(type):
 
 def init_generator(weights_path, save_file_name, MODEL_SETTINGS, CONSTANTS):
     chords_model_weights_path = CONSTANTS.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(weights_path)
+    melody_model_weights_path = CONSTANTS.DEFAULT_MELODY_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(weights_path)
     
     # Initialize Transformer model here for chords generation
     chords_generation_model = ChordGeneratorTransformer(**MODEL_SETTINGS['chords_transformer'])
+    melody_generation_model = MelodyGeneratorTransformer(**MODEL_SETTINGS['melody_transformer'])
+    
     chords_generation_model.load_state_dict(torch.load(chords_model_weights_path))
+    melody_generation_model.load_state_dict(torch.load(melody_model_weights_path))
 
-    return Generator(chords_generation_model, save_file_name, CONSTANTS)
+    return Generator(chords_generation_model, melody_generation_model, save_file_name, CONSTANTS)
 
-def generate_music(generator, seed_chords, video_frames, notes_to_generate_count):
-    chords = generator.generate(
+def generate_music(generator, seed_chords, seed_melody, seed_chords_context, video_frames, notes_to_generate_count):
+    chords, melody = generator.generate(
         chords_seed=seed_chords,
+        melody_seed=seed_melody,
+        chords_context_seed=seed_chords_context,
         video=video_frames,
         num_steps=notes_to_generate_count, 
         max_sequence_length=CONSTANTS.DEFAULT_SEQUENCE_LENGTH, 
@@ -62,7 +68,8 @@ def generate_music(generator, seed_chords, video_frames, notes_to_generate_count
     )
     
     print(chords)
-    generator.save_to_file(chords)
+    print(melody)
+    generator.save_to_file(chords, melody)
     
 # Main function to initialize and start generation
 if __name__ == "__main__":
@@ -72,8 +79,8 @@ if __name__ == "__main__":
 
     modelSettings = ModelSettings(melody_mappings_size, chords_mappings_size, chords_context_mappings_size)
     MODEL_SETTINGS = modelSettings.get_model_settings()
-    generator = init_generator(weights_path="0", save_file_name="generated", MODEL_SETTINGS=MODEL_SETTINGS, CONSTANTS=CONSTANTS)
+    generator = init_generator(weights_path="7", save_file_name="generated", MODEL_SETTINGS=MODEL_SETTINGS, CONSTANTS=CONSTANTS)
     
     seed_melody, seed_chords, seed_chords_context, video_frames, notes_to_generate_count = init_seed(type="fast1")
     
-    generate_music(generator, seed_chords, video_frames, notes_to_generate_count)
+    generate_music(generator, seed_chords, seed_melody, seed_chords_context, video_frames, notes_to_generate_count)

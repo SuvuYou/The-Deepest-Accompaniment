@@ -98,7 +98,7 @@ class MidiDatasetSaver(Dataset):
             idx = i + (chunk_index * self.chunk_size)
             sequence_data["melody_inputs"].append(data["melody"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             sequence_data["chords_inputs"].append(data["chords"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
-            sequence_data["chords_context_inputs"].append(data["chords_context"][idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
+            sequence_data["chords_context_inputs"].append(data["chords_context"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             
             frames = data["video"][(idx * frames_per_data_item): (idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH) * frames_per_data_item]
             sequence_data["video_inputs"].append(frames[[0, int(self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH / 2)]])
