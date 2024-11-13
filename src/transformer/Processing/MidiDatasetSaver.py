@@ -10,7 +10,6 @@ np.set_printoptions(threshold=sys.maxsize, linewidth=100000)
 class MidiDatasetSaver(Dataset):
     def __init__(self, songsEncoder, songsMapper, videoProcessor, song_lengths, CONSTANTS):
         self.CONSTANTS = CONSTANTS
-        
         self.songsEncoder = songsEncoder
         self.songsMapper = songsMapper
         self.videoProcessor = videoProcessor    
@@ -82,8 +81,6 @@ class MidiDatasetSaver(Dataset):
             "melody_inputs": [],
             "chords_inputs": [],
             "chords_context_inputs": [],
-            "melody_targets": [],
-            "chords_targets": [],
             "video_inputs": []
         }
         
@@ -102,8 +99,6 @@ class MidiDatasetSaver(Dataset):
             sequence_data["melody_inputs"].append(data["melody"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             sequence_data["chords_inputs"].append(data["chords"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             sequence_data["chords_context_inputs"].append(data["chords_context"][idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
-            sequence_data["melody_targets"].append(data["melody"][idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
-            sequence_data["chords_targets"].append(data["chords"][idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             
             frames = data["video"][(idx * frames_per_data_item): (idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH) * frames_per_data_item]
             sequence_data["video_inputs"].append(frames[[0, int(self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH / 2)]])
@@ -111,9 +106,7 @@ class MidiDatasetSaver(Dataset):
     def _one_hot_encode_data(self, sequence_data):
         return {
             'melody': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_inputs"]), num_classes=self.classes_size['melody']), dtype=torch.float32),
-            'melody_target': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_targets"]), num_classes=self.classes_size['melody']), dtype=torch.float32),
             'chords': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_inputs"]), num_classes=self.classes_size['chords']), dtype=torch.float32),
-            'chords_target': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_targets"]), num_classes=self.classes_size['chords']), dtype=torch.float32),
             'chords_context_inputs': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_context_inputs"]), num_classes=self.classes_size['chords_context_inputs']), dtype=torch.float32)
         }
 

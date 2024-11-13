@@ -8,23 +8,17 @@ class ModelSettings:
     
     def get_model_settings(self):
         MODEL_SETTINGS = {
-            "melody": {
-                "melody_input_size": self.classes_size["melody"],
-                "chords_context_input_size": self.classes_size["chords_context"],
-                "hidden_size": 1024,
-                "output_size": self.classes_size["melody"],
-                "cnn_feature_size": 128,
-                "chords_feature_size": 32,
-                "num_layers": 3
+            "chords_transformer":
+            {
+                "chord_dim": self.classes_size["chords"], 
+                "video_out_dim": 256, 
+                "num_layers": 16, 
+                "num_decoder_layers": 32, 
+                "nhead": 16, 
+                "d_model": 256, 
+                "dim_feedforward": 2048,
             },
-            "chords": {
-                "input_size": self.classes_size["chords"],
-                "hidden_size": 1024,
-                "output_size": self.classes_size["chords"],
-                "cnn_feature_size": 128,
-                "num_layers": 3
-            },
-            "LR": 0.00001,
+            "LR": 0.0001,
             "num_epochs": 15
         }
         

@@ -4,38 +4,28 @@ import numpy as np
 import torch
 
 class Trainer:
-    def __init__(self, melody_model, chords_model, model_settings, constants, starting_weights_idx=-1):
+    def __init__(self, model, model_settings, constants, starting_weights_idx=-1):
         self.save_weight_idx = starting_weights_idx
         self.model_settings = model_settings
         self.constants = constants
             
-        self.melody_model = melody_model
-        self.chords_model = chords_model
-        
+        self.model = model
         self._load_model_weights_if_needed()
         self._load_mappings()
         self._init_class_weights()
 
     def _load_model_weights_if_needed(self):
         if self.save_weight_idx != -1:
-            melody_weights_path = self.constants.DEFAULT_MELODY_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
-            chords_weights_path = self.constants.DEFAULT_CHORDS_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
-            self.melody_model.load_state_dict(torch.load(melody_weights_path))
-            self.chords_model.load_state_dict(torch.load(chords_weights_path))
+            weights_path = self.constants.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
+            self.model.load_state_dict(torch.load(weights_path))
 
     def _load_mappings(self):
-        with open(self.constants.MELODY_MAPPINGS_PATH, "r") as fp:
-            self.melody_mappings = json.load(fp)
-            
         with open(self.constants.CHORDS_MAPPINGS_PATH, "r") as fp:
-            self.chords_mappings = json.load(fp)  
+            self.chords_mappings = json.load(fp)
 
     def _init_class_weights(self):
-        self.melody_class_weights = self._compute_class_weights(self.melody_mappings)
-        self.chords_class_weights = self._compute_class_weights(self.chords_mappings)
-        
-        self._print_class_weights(self.melody_class_weights, "Initial melody class weights")
-        self._print_class_weights(self.chords_class_weights, "Initial chords class weights")
+        self.class_weights = self._compute_class_weights(self.chords_mappings)
+        self._print_class_weights(self.class_weights, "Initial class weights")
     
     def _compute_class_weights(self, mappings):
         symbol_counts = np.array(list(mappings['counter']['mapped_symbols'].values()))
@@ -47,84 +37,55 @@ class Trainer:
         for idx, weight in enumerate(weights):
             print(f"Symbol {idx}: {weight}")
 
-    def update_class_weights(self, weights, mappings, updates):
-        updated_weights = weights.clone()
-        
+    def update_class_weights(self, updates):
+        updated_weights = self.class_weights.clone()
         for symbol, percentage in updates.items():
-            mapped_value = mappings['mappings'][symbol]
+            mapped_value = self.chords_mappings['mappings'][symbol]
             updated_weights[mapped_value] *= (0.01 * percentage)
-            
-        return updated_weights
-
-    def update_melody_class_weights(self, updates):
-        updated_weights = self.update_class_weights(self.melody_class_weights, self.melody_mappings, updates)
-        self._print_class_weights(updated_weights, "Updated melody class weights")
-        return updated_weights
-
-    def update_chords_class_weights(self, updates):
-        updated_weights = self.update_class_weights(self.chords_class_weights, self.chords_mappings, updates)
-        self._print_class_weights(updated_weights, "Updated chords class weights")
-        return updated_weights
+        self._print_class_weights(updated_weights, "Updated class weights")
+        self.class_weights = updated_weights
     
     def train(self, data_loader):
-        melody_criterion = torch.nn.CrossEntropyLoss(weight=self.melody_class_weights).to(self.constants.DEVICE)
-        chords_criterion = torch.nn.CrossEntropyLoss(weight=self.chords_class_weights).to(self.constants.DEVICE)
-        
-        melody_optimizer = torch.optim.Adam(self.melody_model.parameters(), lr=self.model_settings["LR"])
-        chords_optimizer = torch.optim.Adam(self.chords_model.parameters(), lr=self.model_settings["LR"])
-        
-        num_epochs = self.model_settings['num_epochs']      
+        criterion = torch.nn.CrossEntropyLoss(weight=self.class_weights).to(self.constants.DEVICE)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings["LR"])
+        num_epochs = self.model_settings['num_epochs']
 
         for epoch in range(num_epochs):
-            melody_accuracy, chords_accuracy = self._train_epoch(data_loader, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer)
-            
-            print(f'Epoch [{epoch + 1}/{num_epochs}], Melody Accuracy: {melody_accuracy:.2f}%, Chords Accuracy: {chords_accuracy:.2f}%')
-            
+            accuracy = self._train_epoch(data_loader, criterion, optimizer)
+            print(f'Epoch [{epoch + 1}/{num_epochs}], Accuracy: {accuracy:.2f}%')
             self._save_model_weights()
 
-    def _train_epoch(self, data_loader, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer):
-        total_melody_correct, total_melody_samples = 0, 0
-        total_chords_correct, total_chords_samples = 0, 0
+    def _train_epoch(self, data_loader, criterion, optimizer):
+        total_correct, total_samples = 0, 0
 
-        for batch_idx, ((melody_batches, chords_batches, chords_context_batches, video_batches), (melody_target_batches, chords_target_batches)) in enumerate(data_loader):
+        for batch_idx, (melody_batches, chords_batches, chords_context_batches, video_batches) in enumerate(data_loader):
             if batch_idx % 50 == 0:
                 print(f"Processing batch {batch_idx}")
 
-            for i in range(melody_batches.shape[0]):
-                melody, chords, chords_context, video = self._to_device(melody_batches[i], chords_batches[i], chords_context_batches[i], video_batches[i])
-                melody_target, chords_target = self._to_device(melody_target_batches[i], chords_target_batches[i])
+            for i in range(chords_batches.shape[0]):
+                chords, video = self._to_device(chords_batches[i], video_batches[i])
+                video = video.permute(0, 4, 1, 2, 3)
 
-                melody_output, chords_output = self._optimize_step(melody, chords, chords_context, video, melody_target, chords_target, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer)
+                optimizer.zero_grad()
+                output = self.model(chords, video.float())
 
-                total_melody_samples += melody_target.size(0)
-                total_chords_samples += chords_target.size(0)
-                total_melody_correct += self._compute_accuracy(melody_output, melody_target)
-                total_chords_correct += self._compute_accuracy(chords_output, chords_target)
-                
-        return (total_melody_correct / total_melody_samples) * 100, (total_chords_correct / total_chords_samples) * 100
+                output = output.reshape(-1, output.size(-1)) 
+                chords_target = chords.reshape(-1, chords.size(-1))  
 
-    def _optimize_step(self, melody, chords, chords_context, video, melody_target, chords_target, melody_criterion, chords_criterion, melody_optimizer, chords_optimizer):
-        melody_optimizer.zero_grad()
-        chords_optimizer.zero_grad()
+                # Compute loss
+                loss = criterion(output, chords_target)
+                loss.backward()
+                optimizer.step()
 
-        chords_output = self.chords_model(chords, video.float())
-        melody_output = self.melody_model(melody, chords_context.float(), video.float())
+                total_samples += chords_target.size(0)
+                total_correct += self._compute_accuracy(output, chords_target)
 
-        chords_loss = chords_criterion(chords_output, chords_target.float())
-        melody_loss = melody_criterion(melody_output, melody_target.float())
-
-        chords_loss.backward()
-        chords_optimizer.step()
-        melody_loss.backward()
-        melody_optimizer.step()
-        
-        return melody_output, chords_output
+        return (total_correct / total_samples) * 100
 
     def _compute_accuracy(self, output, target):
-        _, predicted = torch.max(output, dim=1)
+        _, predicted = torch.max(output, 1)
         output_binary = torch.zeros_like(output)
         output_binary.scatter_(1, predicted.view(-1, 1), 1)
-        
         return (output_binary == target).all(dim=1).sum().item()
 
     def _to_device(self, *args):
@@ -135,8 +96,5 @@ class Trainer:
         weights_folder = self.constants.DEFAULT_MODEL_WEIGHTS_FOLDER_NAME(idx=self.save_weight_idx)
         os.makedirs(weights_folder, exist_ok=True)
         
-        melody_weights_path = self.constants.DEFAULT_MELODY_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
-        chords_weights_path = self.constants.DEFAULT_CHORDS_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
-        
-        torch.save(self.melody_model.state_dict(), melody_weights_path)
-        torch.save(self.chords_model.state_dict(), chords_weights_path)
+        weights_path = self.constants.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
+        torch.save(self.model.state_dict(), weights_path)

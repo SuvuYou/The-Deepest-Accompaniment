@@ -16,4 +16,4 @@ class MidiDatasetLoader(Dataset):
         video_data = torch.load(video_load_path, weights_only=True)
         music_data = torch.load(music_load_path, weights_only=True)
     
-        return (music_data['melody'], music_data['chords'], music_data['chords_context_inputs'], video_data['video']), (music_data['melody_target'], music_data['chords_target'])
+        return music_data['melody'], music_data['chords'], music_data['chords_context_inputs'], video_data['video']
