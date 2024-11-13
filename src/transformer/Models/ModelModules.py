@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchvision.models as models
 
 # Positional encoding module for transformer input
 class PositionalEncoding(nn.Module):
@@ -16,33 +17,28 @@ class PositionalEncoding(nn.Module):
         pe = self.pe[:, :x.size(1)].to(x.device)
         return x + pe
 
-# CNN-based feature extractor for video frames
-class VideoFeatureExtractor(nn.Module):
+class PretrainedVideoFeatureExtractor(nn.Module):
     def __init__(self, output_dim):
-        super(VideoFeatureExtractor, self).__init__()
-        self.cnn = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1))
-        )
-        self.fc = nn.Linear(256, output_dim)
+        super(PretrainedVideoFeatureExtractor, self).__init__()
+
+        resnet = models.resnet18(pretrained=True)
+        modules = list(resnet.children())[:-1] 
+        self.feature_extractor = nn.Sequential(*modules)
+        
+        self.fc = nn.Linear(resnet.fc.in_features, output_dim)
 
     def forward(self, x):
         batch_size, channels, num_frames, height, width = x.shape
         x = x.reshape(batch_size * num_frames, channels, height, width)
-        features = self.cnn(x)
-        features = features.reshape(features.size(0), -1)
+        
+        features = self.feature_extractor(x)
+        features = features.view(features.size(0), -1)
+        
         features = self.fc(features)
-        features = features.reshape(batch_size, num_frames, -1)
+        
+        features = features.view(batch_size, num_frames, -1)
         return features
     
-# Transformer-based music generator model
 class ChordGeneratorTransformer(nn.Module):
     def __init__(self, chord_dim, video_out_dim, num_layers=8, num_decoder_layers=16, nhead=8, d_model=128, dim_feedforward=2048, seq_len=24):
         super(ChordGeneratorTransformer, self).__init__()
@@ -66,7 +62,7 @@ class ChordGeneratorTransformer(nn.Module):
         )
         
         # Video feature extractor CNN
-        self.video_feature_extractor = VideoFeatureExtractor(video_out_dim)
+        self.video_feature_extractor = PretrainedVideoFeatureExtractor(video_out_dim)
         
         # Output layer
         self.output_layer = nn.Linear(d_model, chord_dim)

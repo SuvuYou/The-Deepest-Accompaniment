@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     modelSettings = ModelSettings(melody_mappings_size, chords_mappings_size, chords_context_mappings_size)
     MODEL_SETTINGS = modelSettings.get_model_settings()
-    generator = init_generator(weights_path="16", save_file_name="generated", MODEL_SETTINGS=MODEL_SETTINGS, CONSTANTS=CONSTANTS)
+    generator = init_generator(weights_path="0", save_file_name="generated", MODEL_SETTINGS=MODEL_SETTINGS, CONSTANTS=CONSTANTS)
     
     seed_melody, seed_chords, seed_chords_context, video_frames, notes_to_generate_count = init_seed(type="fast1")
     

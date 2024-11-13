@@ -18,7 +18,7 @@ MODEL_SETTINGS = modelSettings.get_model_settings()
 
 model = ChordGeneratorTransformer(**MODEL_SETTINGS["chords_transformer"]).to(CONSTANTS.DEVICE)
 
-trainer = Trainer(model, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = 15)
+trainer = Trainer(model, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = -1)
 
 # melody_updates = {
 #     '_': 185,
