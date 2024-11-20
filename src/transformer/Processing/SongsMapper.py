@@ -1,5 +1,6 @@
 import json
 from collections import Counter
+import matplotlib.pyplot as plt
 
 class SongsMapper:
     def __init__(self, mapping_path): 
@@ -43,15 +44,30 @@ class SongsMapper:
 
         return int_songs
 
-    def get_mappings_size(self, mapping_path):
-        with open(mapping_path, "r") as fp:
-            data = json.load(fp)
-
-        return len(data["mappings"].items())
-
+    @staticmethod
+    def load_mappings(path):
+        with open(path, "r") as fp:
+            mappings = json.load(fp)
+            
+        return mappings
+            
     @staticmethod
     def get_mappings_size(mapping_path):
         with open(mapping_path, "r") as fp:
             data = json.load(fp)
 
         return len(data["mappings"].items())
+    
+    @staticmethod
+    def plot_mappings_data(mapping_data, title="Symbol Distribution"):
+        symbols = list(mapping_data["counter"]["symbols"].keys())
+        counts = list(mapping_data["counter"]["symbols"].values())
+
+        plt.figure(figsize=(12, 6))
+        plt.bar(symbols, counts, color='skyblue', alpha=0.8)
+        plt.title(title)
+        plt.xlabel("Symbols")
+        plt.ylabel("Count")
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.show()

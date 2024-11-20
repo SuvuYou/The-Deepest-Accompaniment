@@ -9,8 +9,9 @@ class VideoProcessor(torch.nn.Module):
     def process_video(self, video, target_video_length_in_frames):
         full_video = self._remove_empty_frames(video)
         selected_frames = self._select_frames(full_video, target_video_length_in_frames)
+        normalized_frames = self._normalize_frames(selected_frames)
         
-        return selected_frames
+        return normalized_frames
     
     def load_video_frames(self, folder_path):
         video, _, fps_data = torchvision.io.read_video(folder_path)
@@ -18,6 +19,9 @@ class VideoProcessor(torch.nn.Module):
         print(video.shape, fps_data)
 
         return video, fps_data['video_fps']
+    
+    def _normalize_frames(self, frames):
+        return frames / 255.0
     
     def _select_frames(self, video, target_video_length_in_frames):
         video = video.to(self.device)     
@@ -73,6 +77,3 @@ class VideoProcessor(torch.nn.Module):
         filtered_video_tensor = torch.cat(filtered_video_frames, dim=0)
 
         return filtered_video_tensor.to('cpu')
-        
-
-            

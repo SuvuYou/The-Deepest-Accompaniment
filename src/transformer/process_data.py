@@ -19,7 +19,14 @@ if __name__ == "__main__":
     songsMapper.create_int_mapping(melody_songs, CONSTANTS.MELODY_MAPPINGS_PATH)
     songsMapper.create_int_mapping(chords_songs, CONSTANTS.CHORDS_MAPPINGS_PATH)
     songsMapper.create_int_mapping(chords_context_songs, CONSTANTS.CHORDS_CONTEXT_MAPPINGS_PATH)
+    
+    melody_mapping = songsMapper.load_mappings(CONSTANTS.MELODY_MAPPINGS_PATH)
+    chord_mapping = songsMapper.load_mappings(CONSTANTS.CHORDS_MAPPINGS_PATH)
+    
+    SongsMapper.plot_mappings_data(melody_mapping, title="Melody Symbol Distribution")
+    SongsMapper.plot_mappings_data(chord_mapping, title="Chord Symbol Distribution")
 
     dataSaver = MidiDatasetSaver(songsEncoder, songsMapper, videoProcessor, song_lengths = melody_lengths + chords_lengths, CONSTANTS = CONSTANTS)
 
     dataSaver.save_training_data()
+    
