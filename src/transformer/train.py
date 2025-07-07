@@ -18,29 +18,25 @@ MODEL_SETTINGS = modelSettings.get_model_settings()
 chords_model = ChordGeneratorTransformer(**MODEL_SETTINGS["chords_transformer"]).to(CONSTANTS.DEVICE)
 melody_model = MelodyGeneratorTransformer(**MODEL_SETTINGS["melody_transformer"]).to(CONSTANTS.DEVICE)
 
-trainer = Trainer(chords_model, melody_model, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = -1)
+trainer = Trainer(None, melody_model, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = -1)
 
-# melody_updates = {
-#     '_': 185,
-#     'r': 120,
-#     '60': 102.5,
-#     '62': 105,
-#     '64': 37,
-#     '69': 66.7,
-#     '65': 64,
-#     '67': 84.5,
-#     '71': 48.35
-# }
+melody_updates = {
+    '_': 200,
+    'r': 120,
+}
 
 chords_updates = {
     '_': 550,
     'r': 120,
 }
 
-# trainer.update_melody_class_weights(melody_updates)
-# trainer.update_class_weights(chords_updates)
+trainer.update_melody_class_weights(melody_updates)
+trainer.update_class_weights(chords_updates)
 
 dataset = MidiDatasetLoader(video_data_chunks_save_path = CONSTANTS.VIDEO_CHUNKS_SAVE_PATH, music_data_chunks_save_path = CONSTANTS.MUSIC_DATA_CHUNKS_SAVE_PATH)
 data_loader = torch.utils.data.DataLoader(dataset, batch_size=6, shuffle=True)  
         
-trainer.train(data_loader)
+trainer.train_chords(data_loader)
+trainer.train_melody(data_loader)
+
+trainer._plot_metrics_from_file()

@@ -16,10 +16,9 @@ class PositionalEncoding(nn.Module):
         pe = self.pe[:, :x.size(1)].to(x.device)
         return x + pe
 
-# CNN-based feature extractor for video frames
-class PretrainedVideoFeatureExtractor(nn.Module):
+class CNNVideoFeatureExtractor(nn.Module):
     def __init__(self, output_dim):
-        super(PretrainedVideoFeatureExtractor, self).__init__()
+        super(CNNVideoFeatureExtractor, self).__init__()
         self.cnn = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -31,7 +30,7 @@ class PretrainedVideoFeatureExtractor(nn.Module):
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1, 1))
         )
-        self.fc = nn.Linear(256, output_dim)
+        self.fc = nn.Linear(64, output_dim)
 
     def forward(self, x):
         batch_size, channels, num_frames, height, width = x.shape
@@ -42,28 +41,28 @@ class PretrainedVideoFeatureExtractor(nn.Module):
         features = features.reshape(batch_size, num_frames, -1)
         return features
 
-# class PretrainedVideoFeatureExtractor(nn.Module):
-#     def __init__(self, video_out_dim):
-#         super(PretrainedVideoFeatureExtractor, self).__init__()
+class PretrainedVideoFeatureExtractor(nn.Module):
+    def __init__(self, video_out_dim):
+        super(PretrainedVideoFeatureExtractor, self).__init__()
 
-#         resnet = models.resnet18(pretrained=True)
-#         modules = list(resnet.children())[:-1]
-#         self.feature_extractor = nn.Sequential(*modules)
+        resnet = models.resnet18(pretrained=True)
+        modules = list(resnet.children())[:-1]
+        self.feature_extractor = nn.Sequential(*modules)
         
-#         self.fc = nn.Linear(resnet.fc.in_features, video_out_dim)
+        self.fc = nn.Linear(resnet.fc.in_features, video_out_dim)
 
-#     def forward(self, x):
-#         batch_size, channels, num_frames, height, width = x.shape
-#         x = x.reshape(batch_size * num_frames, channels, height, width)
+    def forward(self, x):
+        batch_size, channels, num_frames, height, width = x.shape
+        x = x.reshape(batch_size * num_frames, channels, height, width)
         
-#         features = self.feature_extractor(x)
-#         features = features.view(features.size(0), -1)
+        features = self.feature_extractor(x)
+        features = features.view(features.size(0), -1)
         
-#         features = self.fc(features)
+        features = self.fc(features)
         
-#         features = features.view(batch_size, num_frames, -1)
+        features = features.view(batch_size, num_frames, -1)
         
-#         return features
+        return features
 
 class ChordGeneratorTransformer(nn.Module):
     def __init__(self, chord_dim, video_out_dim, num_encoder_layers=8, num_decoder_layers=16, nhead=8, d_model=128, dim_feedforward=2048, seq_len=24):
@@ -95,10 +94,12 @@ class ChordGeneratorTransformer(nn.Module):
         extracted_video_features = self.video_feature_extractor(video_frames.float())
         video_features = self.positional_encoding(extracted_video_features)
         video_encoded = self.video_encoder(video_features.permute(1, 0, 2))
-        
+        # batch_size, seq_len, d_model = chord_embedded.size()
+        # dummy_memory = torch.zeros((seq_len, batch_size, d_model), device=chord_embedded.device)
+
         output = self.chord_decoder(
             chord_embedded.permute(1, 0, 2), 
-            video_encoded,
+            video_encoded, # or dummy_memory
             tgt_mask=self.chord_mask
         )
         
@@ -123,7 +124,7 @@ class MelodyGeneratorTransformer(nn.Module):
             num_layers=num_encoder_layers
         )
         
-        # Video feature transformer encoder
+        # # Video feature transformer encoder
         self.video_encoder = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward),
             num_layers=num_encoder_layers
@@ -159,13 +160,13 @@ class MelodyGeneratorTransformer(nn.Module):
         # Melody decoding with sequential cross-attention
         melody_decoded = self.melody_decoder(
             tgt=melody_embedded.permute(1, 0, 2),
-            memory=chord_context_encoded,
+            memory=video_encoded,
             tgt_mask=self.melody_mask
         )
         
         melody_output = self.melody_decoder(
-            tgt=melody_decoded,
-            memory=video_encoded,
+            tgt=melody_decoded.permute(1, 0, 2),
+            memory=chord_context_encoded,
             tgt_mask=self.melody_mask
         )
         

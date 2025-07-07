@@ -12,9 +12,9 @@ def init_seed(type):
     notes_to_generate_count = 200
     seeds = {
         "fast":{
-            "seed_melody": "64 71 69 64 64 71 69 64 64 71 69 64",
-            "seed_chords": "(C-E-A) _ _ _ _ _ _ _ _ _ _ _",
-            "seed_chords_context": "(C-E-A) _ _ _ _ _ _ _ _ _ _ _".replace("_", "(C-E-A)")
+            "seed_melody": "64 71 69 64 64 71 69 64 64 71 69 64 64 71 69 64 64 71 69 64 64 71 69 64",
+            "seed_chords": "(C-E-A) _ _ _ _ _ _ _ _ _ _ _ (C-E-A) _ _ _ _ _ _ _ _ _ _ _",
+            "seed_chords_context": "(C-E-A) _ _ _ _ _ _ _ _ _ _ _ (C-E-A) _ _ _ _ _ _ _ _ _ _ _".replace("_", "(C-E-A)")
         },
         "fast1":{
             "seed_melody": "60 64 69 60 60 64 69 60 _ _ _ 67 71 64 67 71 71 64 67 71 71 64 67 71",
@@ -70,8 +70,7 @@ def generate_music(generator, seed_chords, seed_melody, seed_chords_context, vid
     print(chords)
     print(melody)
     generator.save_to_file(chords, melody)
-    
-# Main function to initialize and start generation
+
 if __name__ == "__main__":
     melody_mappings_size = SongsMapper.get_mappings_size(CONSTANTS.MELODY_MAPPINGS_PATH)
     chords_mappings_size = SongsMapper.get_mappings_size(CONSTANTS.CHORDS_MAPPINGS_PATH)
@@ -79,8 +78,8 @@ if __name__ == "__main__":
 
     modelSettings = ModelSettings(melody_mappings_size, chords_mappings_size, chords_context_mappings_size)
     MODEL_SETTINGS = modelSettings.get_model_settings()
-    generator = init_generator(weights_path="7", save_file_name="generated", MODEL_SETTINGS=MODEL_SETTINGS, CONSTANTS=CONSTANTS)
+    generator = init_generator(weights_path="2", save_file_name="generated", MODEL_SETTINGS=MODEL_SETTINGS, CONSTANTS=CONSTANTS)
     
-    seed_melody, seed_chords, seed_chords_context, video_frames, notes_to_generate_count = init_seed(type="fast1")
+    seed_melody, seed_chords, seed_chords_context, video_frames, notes_to_generate_count = init_seed(type="fast")
     
     generate_music(generator, seed_chords, seed_melody, seed_chords_context, video_frames, notes_to_generate_count)
