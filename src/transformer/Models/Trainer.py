@@ -49,9 +49,6 @@ class Trainer:
         with open(self.constants.MELODY_MAPPINGS_PATH, "r") as fp:
             self.melody_mappings = json.load(fp)
             
-        with open(self.constants.CHORDS_CONTEXT_MAPPINGS_PATH, "r") as fp:
-            self.chords_context_mappings = json.load(fp)
-
     def _init_class_weights(self):
         self.chords_class_weights = self._compute_class_weights(self.chords_mappings)
         self.melody_class_weights = self._compute_class_weights(self.melody_mappings)
@@ -131,7 +128,7 @@ class Trainer:
         chords_class_correct = np.zeros(len(self.chords_mappings['mappings']))
         chords_class_total = np.zeros(len(self.chords_mappings['mappings']))
         
-        for batch_idx, (melody_batches, chords_batches, chords_context_batches) in enumerate(data_loader):
+        for batch_idx, (melody_batches, chords_batches) in enumerate(data_loader):
             print(f"Processing batch {batch_idx}")
 
             for i in range(chords_batches.shape[0]):

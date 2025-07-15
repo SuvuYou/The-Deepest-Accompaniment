@@ -22,6 +22,6 @@ class MidiDatasetLoader(Dataset):
             video_load_path = f"{self.video_data_chunks_save_path}/{idx}.pt"
             video_data = torch.load(video_load_path, weights_only=True)
             
-            return music_data['melody'], music_data['chords'], music_data['chords_context_inputs'], video_data['video']
+            return music_data['melody'], music_data['chords'], video_data['video']
             
-        return music_data['melody'], music_data['chords'], music_data['chords_context_inputs']
+        return music_data['melody'], music_data['chords']

@@ -106,23 +106,16 @@ class ChordGeneratorTransformer(nn.Module):
         return self.output_layer(output.permute(1, 0, 2))
 
 class MelodyGeneratorTransformer(nn.Module):
-    def __init__(self, melody_dim, chord_context_dim, video_out_dim, num_encoder_layers=8, num_decoder_layers=16, nhead=8, d_model=128, dim_feedforward=2048, seq_len=24):
+    def __init__(self, melody_dim, video_out_dim, num_encoder_layers=8, num_decoder_layers=16, nhead=8, d_model=128, dim_feedforward=2048, seq_len=24):
         super(MelodyGeneratorTransformer, self).__init__()
         
         self.melody_mask = generate_square_subsequent_mask(seq_len)
 
         # Separate embeddings for melody and chords
         self.melody_embedding = nn.Embedding(melody_dim, d_model)
-        self.chord_context_embedding = nn.Embedding(chord_context_dim, d_model)
         self.positional_encoding = PositionalEncoding(d_model)
         
         self.video_feature_extractor = PretrainedVideoFeatureExtractor(video_out_dim)
-        
-        # Chord context encoder
-        self.chord_context_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward),
-            num_layers=num_encoder_layers
-        )
         
         # # Video feature transformer encoder
         self.video_encoder = nn.TransformerEncoder(

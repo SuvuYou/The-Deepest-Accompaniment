@@ -3,10 +3,8 @@ from collections import Counter
 import matplotlib.pyplot as plt
 
 class SongsMapper:
-    def __init__(self, mapping_path): 
-        self.mapping_path = mapping_path
-        
-    def create_int_mapping(self, songs, mapping_path):
+    @staticmethod
+    def create_int_mapping(songs, mapping_path):
         mappings = {}
         
         songs = [song.split() for song in songs]
@@ -30,19 +28,17 @@ class SongsMapper:
 
         with open(mapping_path, "w") as fp:
             json.dump(data, fp, indent=4)
-            
-    def convert_songs_to_int(self, songs, mapping_path):
-        int_songs = []
 
-        with open(mapping_path, "r") as fp:
-            data = json.load(fp)
+    @staticmethod
+    def convert_song_to_int(song, mappings):
+        int_song = []
 
-        songs = songs.split()
+        song = song.split()
 
-        for symbol in songs:
-            int_songs.append(data["mappings"][symbol])
+        for symbol in song:
+            int_song.append(mappings[symbol])
 
-        return int_songs
+        return int_song
 
     @staticmethod
     def load_mappings(path):

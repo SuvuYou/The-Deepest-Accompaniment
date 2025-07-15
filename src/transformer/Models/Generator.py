@@ -21,31 +21,22 @@ class Generator:
             self._melody_mappings = json.load(fp)['mappings']
         
         self.melody_mappings_inv = {v: k for k, v in self._melody_mappings.items()}
-        
-        with open(self.CONSTANTS.CHORDS_CONTEXT_MAPPINGS_PATH, "r") as fp:
-            self._chords_context_mappings = json.load(fp)['mappings']
-        
-        self._chords_context_mappings_inv = {v: k for k, v in self._chords_context_mappings.items()}
 
-    def generate(self, chords_seed, melody_seed, chords_context_seed, video, num_steps, max_sequence_length, temperature):
+    def generate(self, chords_seed, melody_seed, video, num_steps, max_sequence_length, temperature):
         with torch.no_grad():
             chords_seed = chords_seed.split()
             melody_seed = melody_seed.split()
-            chords_context_seed = chords_context_seed.split()
             
             chords = chords_seed
             melody = melody_seed
-            chords_context = chords_context_seed
             
             # Convert seed chords and melody to indices
             chords_seed = [self._chords_mappings[symbol] for symbol in chords_seed]
             melody_seed = [self._melody_mappings[symbol] for symbol in melody_seed]
-            chords_context_seed = [self._chords_context_mappings[symbol] for symbol in chords_context_seed]
 
             for idx in range(num_steps):
                 # Use only the last max_sequence_length items for generation
                 chords_seed = chords_seed[-max_sequence_length:]
-                chords_context_seed = chords_context_seed[-max_sequence_length:]
                 melody_seed = melody_seed[-max_sequence_length:]
                 seed_length = len(chords_seed)
 
@@ -58,7 +49,6 @@ class Generator:
 
                 # Prepare one-hot encoded chord and melody seeds as input
                 onehot_chords_seed = torch.nn.functional.one_hot(torch.tensor(chords_seed, dtype=torch.int64), num_classes=len(self._chords_mappings))
-                onehot_chords_context_seed = torch.nn.functional.one_hot(torch.tensor(chords_context_seed, dtype=torch.int64), num_classes=len(self._chords_context_mappings))
                 onehot_melody_seed = torch.nn.functional.one_hot(torch.tensor(melody_seed, dtype=torch.int64), num_classes=len(self._melody_mappings))
                 
                 # Transformer expects input in the shape [seq_len, batch_size, feature_dim], so we permute and add batch dimension
@@ -69,7 +59,6 @@ class Generator:
 
                 melody_output = self.melody_generation_model(
                     onehot_melody_seed.unsqueeze(0).float(),  # [batch_size, seq_len, feature_dim]
-                    onehot_chords_context_seed.unsqueeze(0).float(),  # [batch_size, seq_len, feature_dim] for chord context
                     video_seed.unsqueeze(0).float()  # [batch_size, channels, num_frames, height, width] for video
                 )
                 
@@ -85,13 +74,6 @@ class Generator:
                 chords_output_symbol = self.chords_mappings_inv[chords_output_int]
                 melody_output_symbol = self.melody_mappings_inv[melody_output_int]
                 
-                if chords_output_symbol == "_" or chords_output_symbol == "r":
-                    chords_context_seed.append(chords_context_seed[-1])
-                    chords_context.append(chords_context[-1])
-                else:
-                    chords_context.append(chords_output_symbol)
-                    chords_context_seed.append(self._chords_context_mappings[chords_output_symbol])
-                    
                 chords_seed.append(chords_output_int)
                 melody_seed.append(melody_output_int)
                 

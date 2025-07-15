@@ -10,15 +10,14 @@ print("DEVICE -", CONSTANTS.DEVICE)
         
 melody_mappings_size = SongsMapper.get_mappings_size(CONSTANTS.MELODY_MAPPINGS_PATH)
 chords_mappings_size = SongsMapper.get_mappings_size(CONSTANTS.CHORDS_MAPPINGS_PATH)
-chords_context_mappings_size = SongsMapper.get_mappings_size(CONSTANTS.CHORDS_CONTEXT_MAPPINGS_PATH)
 
-modelSettings = ModelSettings(melody_mappings_size, chords_mappings_size, chords_context_mappings_size)
+modelSettings = ModelSettings(melody_mappings_size, chords_mappings_size)
 MODEL_SETTINGS = modelSettings.get_model_settings()
 
 chords_model = ChordGeneratorTransformer(**MODEL_SETTINGS["chords_transformer"]).to(CONSTANTS.DEVICE)
-melody_model = MelodyGeneratorTransformer(**MODEL_SETTINGS["melody_transformer"]).to(CONSTANTS.DEVICE)
+# melody_model = MelodyGeneratorTransformer(**MODEL_SETTINGS["melody_transformer"]).to(CONSTANTS.DEVICE)
 
-trainer = Trainer(None, melody_model, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = -1)
+trainer = Trainer(chords_model, None, MODEL_SETTINGS, CONSTANTS, starting_weights_idx = -1)
 
 melody_updates = {
     '_': 200,

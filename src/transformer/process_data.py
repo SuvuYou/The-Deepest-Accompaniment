@@ -6,27 +6,32 @@ from Processing.VideoProcessor import VideoProcessor
     
 if __name__ == "__main__":
     songsEncoder = SongsEncoder(CONSTANTS.ACCEPTABLE_DURATIONS, CONSTANTS.PROCESSED_DATASET_PATH, CONSTANTS.MAPPED_MIDI_DATA_FOLDER_PATH, CONSTANTS.SORTED_CHORDS_LIST)
-    songsMapper = SongsMapper(CONSTANTS.MAPPINGS_PATH)
     videoProcessor = VideoProcessor(CONSTANTS.DEVICE, CONSTANTS.VIDEO_CHUNK_SIZE)
 
     songsEncoder.encode_songs_and_save_to_files(type='melody')
     songsEncoder.encode_songs_and_save_to_files(type='chords')
 
-    melody_songs, melody_lengths = songsEncoder.load_encoded_txt_songs(type='melody')
-    chords_songs, chords_lengths = songsEncoder.load_encoded_txt_songs(type='chords')
-    chords_context_songs, chords_context_lengths = songsEncoder.load_encoded_txt_songs(type='chords-context')
-
-    songsMapper.create_int_mapping(melody_songs, CONSTANTS.MELODY_MAPPINGS_PATH)
-    songsMapper.create_int_mapping(chords_songs, CONSTANTS.CHORDS_MAPPINGS_PATH)
-    songsMapper.create_int_mapping(chords_context_songs, CONSTANTS.CHORDS_CONTEXT_MAPPINGS_PATH)
+    melody_pitch_songs, melody_duration_songs, melody_lengths = songsEncoder.load_encoded_txt_songs(type='melody')
+    chords_pitch_songs, chords_duration_songs, chords_lengths = songsEncoder.load_encoded_txt_songs(type='chords')
     
-    melody_mapping = songsMapper.load_mappings(CONSTANTS.MELODY_MAPPINGS_PATH)
-    chord_mapping = songsMapper.load_mappings(CONSTANTS.CHORDS_MAPPINGS_PATH)
+    SongsMapper.create_int_mapping(melody_pitch_songs, CONSTANTS.MELODY_PITCH_MAPPINGS_PATH)
+    SongsMapper.create_int_mapping(melody_duration_songs, CONSTANTS.MELODY_DURATION_MAPPINGS_PATH)
     
-    SongsMapper.plot_mappings_data(melody_mapping, title="Melody Symbol Distribution")
-    SongsMapper.plot_mappings_data(chord_mapping, title="Chord Symbol Distribution")
+    SongsMapper.create_int_mapping(chords_pitch_songs, CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH)
+    SongsMapper.create_int_mapping(chords_duration_songs, CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH)
+    
+    melody_pitch_mapping = SongsMapper.load_mappings(CONSTANTS.MELODY_PITCH_MAPPINGS_PATH)
+    melody_duration_mapping = SongsMapper.load_mappings(CONSTANTS.MELODY_DURATION_MAPPINGS_PATH)
+    
+    chord_pitch_mapping = SongsMapper.load_mappings(CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH)
+    chord_duration_mapping = SongsMapper.load_mappings(CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH)
+    
+    SongsMapper.plot_mappings_data(melody_pitch_mapping, title="Melody Pitch Distribution")
+    SongsMapper.plot_mappings_data(melody_duration_mapping, title="Melody Duration Distribution")
+    SongsMapper.plot_mappings_data(chord_pitch_mapping, title="Chord Pitch Distribution")
+    SongsMapper.plot_mappings_data(chord_duration_mapping, title="Chord Duration Distribution")
 
-    dataSaver = MidiDatasetSaver(songsEncoder, songsMapper, videoProcessor, song_lengths = melody_lengths + chords_lengths, CONSTANTS = CONSTANTS)
+    dataSaver = MidiDatasetSaver(videoProcessor, song_lengths = melody_lengths + chords_lengths, CONSTANTS = CONSTANTS)
 
     dataSaver.save_training_data()
     
