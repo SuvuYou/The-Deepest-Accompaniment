@@ -32,8 +32,12 @@ chords_updates = {
 trainer.update_melody_class_weights(melody_updates)
 trainer.update_class_weights(chords_updates)
 
-dataset = MidiDatasetLoader(video_data_chunks_save_path = CONSTANTS.VIDEO_CHUNKS_SAVE_PATH, music_data_chunks_save_path = CONSTANTS.MUSIC_DATA_CHUNKS_SAVE_PATH)
-data_loader = torch.utils.data.DataLoader(dataset, batch_size=6, shuffle=True)  
+
+chords_dataset = MidiDatasetLoader(load_data_type="chords")
+melody_dataset = MidiDatasetLoader(load_data_type="melody")
+
+chords_data_loader = torch.utils.data.DataLoader(chords_dataset, batch_size=6, shuffle=True) 
+melody_data_loader = torch.utils.data.DataLoader(melody_dataset, batch_size=6, shuffle=True)   
         
 trainer.train_chords(data_loader)
 trainer.train_melody(data_loader)
