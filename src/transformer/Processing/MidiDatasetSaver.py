@@ -62,10 +62,10 @@ class MidiDatasetSaver():
         return {
             "melody_length": melody_length,
             "chords_length": chords_length,
-            "melody_pitch_tokens": SongsMapper.convert_song_to_int(melody_pitch_tokens, self.mappings["melody_pitch_mapping"]),
-            "melody_duration_tokens": SongsMapper.convert_song_to_int(melody_duration_tokens, self.mappings["melody_duration_mapping"]),
-            "chords_pitch_tokens": SongsMapper.convert_song_to_int(chords_pitch_tokens, self.mappings["chord_pitch_mapping"]),
-            "chords_duration_tokens": SongsMapper.convert_song_to_int(chords_duration_tokens, self.mappings["chord_duration_mapping"]),
+            "melody_pitch_tokens": SongsMapper.convert_song_to_int(melody_pitch_tokens, self.mappings["melody_pitch_mapping"]["mappings"]),
+            "melody_duration_tokens": SongsMapper.convert_song_to_int(melody_duration_tokens, self.mappings["melody_duration_mapping"]["mappings"]),
+            "chords_pitch_tokens": SongsMapper.convert_song_to_int(chords_pitch_tokens, self.mappings["chord_pitch_mapping"]["mappings"]),
+            "chords_duration_tokens": SongsMapper.convert_song_to_int(chords_duration_tokens, self.mappings["chord_duration_mapping"]["mappings"]),
             "melody_training_video": melody_training_video,
             "chords_training_video": chords_training_video
         }
@@ -163,15 +163,15 @@ class MidiDatasetSaver():
 
     def _one_hot_encode_chords_data(self, sequence_data):
         return {
-            'chords_pitches': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_pitches"]), num_classes=self.classes_size['chords_pitch']), dtype=torch.float32),
-            'chords_duration': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_duration"]), num_classes=self.classes_size['chords_duration']), dtype=torch.float32)
+            'chords_pitches': torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_pitches"]), num_classes=self.classes_size['chords_pitch']), 
+            'chords_duration': torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_duration"]), num_classes=self.classes_size['chords_duration']), 
         }
 
         
     def _one_hot_encode_melody_data(self, sequence_data):
         return {
-            'melody_pitches': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_pitches"]), num_classes=self.classes_size['melody_pitch']), dtype=torch.float32),
-            'melody_duration': torch.tensor(torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_duration"]), num_classes=self.classes_size['melody_duration']), dtype=torch.float32)
+            'melody_pitches': torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_pitches"]), num_classes=self.classes_size['melody_pitch']),
+            'melody_duration': torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_duration"]), num_classes=self.classes_size['melody_duration']),
         }
 
 def _has_only_numbers(input_str):

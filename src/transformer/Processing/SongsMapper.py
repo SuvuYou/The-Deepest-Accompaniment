@@ -1,4 +1,5 @@
 import json
+import os
 from collections import Counter
 import matplotlib.pyplot as plt
 
@@ -25,6 +26,8 @@ class SongsMapper:
                 "mapped_symbols": mapped_symbols_counts
                 }
             }    
+        
+        os.makedirs(os.path.dirname(mapping_path), exist_ok=True)
 
         with open(mapping_path, "w") as fp:
             json.dump(data, fp, indent=4)

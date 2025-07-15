@@ -18,7 +18,7 @@ CHORDS_DURATION_MAPPINGS_PATH = f"{MAPPINGS_PATH}/chords_duration_mappings.json"
 CHORDS_DATA_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/chords/tensors"
 MELODY_DATA_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/melody/tensors"
 CHORDS_VIDEO_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/chords/tensors_video"
-MELODY_VIDEO_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/melody/tensor_video"
+MELODY_VIDEO_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/melody/tensors_video"
 
 DEFAULT_SEQUENCE_LENGTH = 24
 DEFAULT_MODEL_WEIGHTS_FOLDER_NAME = lambda idx: f"weights/{idx}"
