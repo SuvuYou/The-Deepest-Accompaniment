@@ -16,30 +16,17 @@ class PositionalEncoding(nn.Module):
         pe = self.pe[:, :x.size(1)].to(x.device)
         return x + pe
 
-class CNNVideoFeatureExtractor(nn.Module):
-    def __init__(self, output_dim):
-        super(CNNVideoFeatureExtractor, self).__init__()
-        self.cnn = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1))
-        )
-        self.fc = nn.Linear(64, output_dim)
+class DualTokenEmbedding(nn.Module):
+    def __init__(self, pitch_vocab_size, duration_vocab_size, d_model):
+        super().__init__()
+        self.pitch_embed = nn.Embedding(pitch_vocab_size, d_model)
+        self.duration_embed = nn.Embedding(duration_vocab_size, d_model)
+        self.scale = torch.sqrt(torch.tensor(d_model, dtype=torch.float32))
 
-    def forward(self, x):
-        batch_size, channels, num_frames, height, width = x.shape
-        x = x.reshape(batch_size * num_frames, channels, height, width)
-        features = self.cnn(x)
-        features = features.reshape(features.size(0), -1)
-        features = self.fc(features)
-        features = features.reshape(batch_size, num_frames, -1)
-        return features
+    def forward(self, pitch_tokens, duration_tokens):
+        pitch = self.pitch_embed(pitch_tokens)
+        duration = self.duration_embed(duration_tokens)
+        return self.scale * (pitch + duration)
 
 class PretrainedVideoFeatureExtractor(nn.Module):
     def __init__(self, video_out_dim):
@@ -52,7 +39,8 @@ class PretrainedVideoFeatureExtractor(nn.Module):
         self.fc = nn.Linear(resnet.fc.in_features, video_out_dim)
 
     def forward(self, x):
-        batch_size, channels, num_frames, height, width = x.shape
+        print(x.shape)
+        batch_size, num_frames, height, width, channels = x.shape
         x = x.reshape(batch_size * num_frames, channels, height, width)
         
         features = self.feature_extractor(x)
@@ -65,106 +53,98 @@ class PretrainedVideoFeatureExtractor(nn.Module):
         return features
 
 class ChordGeneratorTransformer(nn.Module):
-    def __init__(self, chord_dim, video_out_dim, num_encoder_layers=8, num_decoder_layers=16, nhead=8, d_model=128, dim_feedforward=2048, seq_len=24):
-        super(ChordGeneratorTransformer, self).__init__()
-        
-        self.chord_mask = generate_square_subsequent_mask(seq_len)
-        self.chord_embedding = nn.Embedding(chord_dim, d_model)
-        self.positional_encoding = PositionalEncoding(d_model)
-        
-        self.video_feature_extractor = PretrainedVideoFeatureExtractor(video_out_dim)
-        
-        self.video_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward),
-            num_layers=num_encoder_layers
-        )
-        
-        self.chord_decoder = nn.TransformerDecoder(
-            nn.TransformerDecoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward),
-            num_layers=num_decoder_layers
-        )
-        
-        self.output_layer = nn.Linear(d_model, chord_dim)
-        
-    def forward(self, chord_sequence_indices, video_frames):
-        chord_sequence_indices = torch.argmax(chord_sequence_indices, dim=-1)
-        chord_embedded = self.chord_embedding(chord_sequence_indices)
-        chord_embedded = self.positional_encoding(chord_embedded)
-        
-        extracted_video_features = self.video_feature_extractor(video_frames.float())
-        video_features = self.positional_encoding(extracted_video_features)
-        video_encoded = self.video_encoder(video_features.permute(1, 0, 2))
-        # batch_size, seq_len, d_model = chord_embedded.size()
-        # dummy_memory = torch.zeros((seq_len, batch_size, d_model), device=chord_embedded.device)
+    def __init__(self, settings):
+        super().__init__()
+        self.mask = generate_square_subsequent_mask(settings["seq_len"])
 
-        output = self.chord_decoder(
-            chord_embedded.permute(1, 0, 2), 
-            video_encoded, # or dummy_memory
-            tgt_mask=self.chord_mask
+        self.embedding = DualTokenEmbedding(
+            settings["chord_pitch_dim"],
+            settings["chord_duration_dim"],
+            settings["d_model"]
         )
-        
-        return self.output_layer(output.permute(1, 0, 2))
+
+        self.positional_encoding = PositionalEncoding(settings["d_model"], settings["seq_len"])
+        self.video_feature_extractor = PretrainedVideoFeatureExtractor(settings["video_out_dim"])
+
+        self.video_encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=settings["d_model"],
+                nhead=settings["nhead"],
+                dim_feedforward=settings["dim_feedforward"]
+            ),
+            num_layers=settings["num_encoder_layers"]
+        )
+
+        self.decoder = nn.TransformerDecoder(
+            nn.TransformerDecoderLayer(
+                d_model=settings["d_model"],
+                nhead=settings["nhead"],
+                dim_feedforward=settings["dim_feedforward"]
+            ),
+            num_layers=settings["num_decoder_layers"]
+        )
+
+        self.output_pitch = nn.Linear(settings["d_model"], settings["chord_pitch_dim"])
+        self.output_duration = nn.Linear(settings["d_model"], settings["chord_duration_dim"])
+
+    def forward(self, pitch_tokens, duration_tokens, video_frames):
+        x = self.embedding(torch.argmax(pitch_tokens, -1), torch.argmax(duration_tokens, -1))
+        x = self.positional_encoding(x)
+
+        video_features = self.video_feature_extractor(video_frames.float())
+        video_encoded = self.video_encoder(self.positional_encoding(video_features).permute(1, 0, 2))
+
+        decoded = self.decoder(x.permute(1, 0, 2), video_encoded, tgt_mask=self.mask)
+
+        pitch_out = self.output_pitch(decoded.permute(1, 0, 2))
+        duration_out = self.output_duration(decoded.permute(1, 0, 2))
+        return pitch_out, duration_out
 
 class MelodyGeneratorTransformer(nn.Module):
-    def __init__(self, melody_dim, video_out_dim, num_encoder_layers=8, num_decoder_layers=16, nhead=8, d_model=128, dim_feedforward=2048, seq_len=24):
-        super(MelodyGeneratorTransformer, self).__init__()
-        
-        self.melody_mask = generate_square_subsequent_mask(seq_len)
+    def __init__(self, settings):
+        super().__init__()
+        self.mask = generate_square_subsequent_mask(settings["seq_len"])
 
-        # Separate embeddings for melody and chords
-        self.melody_embedding = nn.Embedding(melody_dim, d_model)
-        self.positional_encoding = PositionalEncoding(d_model)
-        
-        self.video_feature_extractor = PretrainedVideoFeatureExtractor(video_out_dim)
-        
-        # # Video feature transformer encoder
+        self.melody_embedding = DualTokenEmbedding(
+            settings["melody_pitch_dim"],
+            settings["melody_duration_dim"],
+            settings["d_model"]
+        )
+        self.positional_encoding = PositionalEncoding(settings["d_model"], settings["seq_len"])
+        self.video_feature_extractor = PretrainedVideoFeatureExtractor(settings["video_out_dim"])
+
         self.video_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward),
-            num_layers=num_encoder_layers
+            nn.TransformerEncoderLayer(
+                d_model=settings["d_model"],
+                nhead=settings["nhead"],
+                dim_feedforward=settings["dim_feedforward"]
+            ),
+            num_layers=settings["num_encoder_layers"]
         )
-        
-        # Melody transformer decoder with dual cross-attention
-        self.melody_decoder = nn.TransformerDecoder(
-            nn.TransformerDecoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward),
-            num_layers=num_decoder_layers
+        self.decoder = nn.TransformerDecoder(
+            nn.TransformerDecoderLayer(
+                d_model=settings["d_model"],
+                nhead=settings["nhead"],
+                dim_feedforward=settings["dim_feedforward"]
+            ),
+            num_layers=settings["num_decoder_layers"]
         )
-        
-        # Output layer
-        self.output_layer = nn.Linear(d_model, melody_dim)
-        
-    def forward(self, melody_sequence, chord_context_sequence, video_frames):
-        # Melody embedding and positional encoding
-        melody_sequence_indices = torch.argmax(melody_sequence, dim=-1)
-        melody_embedded = self.melody_embedding(melody_sequence_indices)
-        melody_embedded = self.positional_encoding(melody_embedded)
-        
-        # Chord encoding
-        chord_context_sequence_indices = torch.argmax(chord_context_sequence, dim=-1)
-        chord_context_embedded = self.chord_context_embedding(chord_context_sequence_indices)
-        chord_context_embedded = self.positional_encoding(chord_context_embedded)
-        
-        chord_context_encoded = self.chord_context_encoder(chord_context_embedded.permute(1, 0, 2))
-        
-        # Video encoding
-        extracted_video_features = self.video_feature_extractor(video_frames.float())
-        video_features = self.positional_encoding(extracted_video_features)
-        video_encoded = self.video_encoder(video_features.permute(1, 0, 2))
-        
-        # Melody decoding with sequential cross-attention
-        melody_decoded = self.melody_decoder(
-            tgt=melody_embedded.permute(1, 0, 2),
-            memory=video_encoded,
-            tgt_mask=self.melody_mask
-        )
-        
-        melody_output = self.melody_decoder(
-            tgt=melody_decoded.permute(1, 0, 2),
-            memory=chord_context_encoded,
-            tgt_mask=self.melody_mask
-        )
-        
-        # Final output layer
-        return self.output_layer(melody_output.permute(1, 0, 2))
+
+        self.output_pitch = nn.Linear(settings["d_model"], settings["melody_pitch_dim"])
+        self.output_duration = nn.Linear(settings["d_model"], settings["melody_duration_dim"])
+
+    def forward(self, melody_pitch, melody_duration, video_frames):
+        melody_emb = self.melody_embedding(torch.argmax(melody_pitch, -1), torch.argmax(melody_duration, -1))
+        melody_emb = self.positional_encoding(melody_emb)
+
+        video_features = self.video_feature_extractor(video_frames.float())
+        video_encoded = self.video_encoder(self.positional_encoding(video_features).permute(1, 0, 2))
+
+        decoded_video = self.decoder(melody_emb.permute(1, 0, 2), video_encoded, tgt_mask=self.mask)
+
+        pitch_out = self.output_pitch(decoded_video)
+        duration_out = self.output_duration(decoded_video)
+        return pitch_out, duration_out
 
 # Utility to generate causal mask for chords and melody
 def generate_square_subsequent_mask(sz):

@@ -26,7 +26,7 @@ class MidiDatasetLoader(Dataset):
         video_load_path = f"{self.video_load_path}/{idx}.pt"
         video_data = torch.load(video_load_path, weights_only=True)
         
-        pitches_tokens = self.load_data_type == "chords" and music_data['chords_pitches'] or music_data['melody_pitches']
-        duration_tokens = self.load_data_type == "chords" and music_data['chords_duration'] or music_data['melody_duration']
+        pitches_tokens = music_data['chords_pitches'] if self.load_data_type == "chords" else music_data['melody_pitches']
+        duration_tokens = music_data['chords_duration'] if self.load_data_type == "chords" else music_data['melody_duration']
         
         return pitches_tokens, duration_tokens, video_data['video']

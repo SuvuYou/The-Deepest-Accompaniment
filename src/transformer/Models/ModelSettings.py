@@ -1,31 +1,44 @@
+from Processing.const import CONSTANTS
+from Processing.SongsMapper import SongsMapper
+
 class ModelSettings:
-    def __init__(self, melody_mappings_size, chords_mappings_size): 
+    def __init__(self): 
         self.classes_size = {
-            "melody": melody_mappings_size,
-            "chords": chords_mappings_size,
+            "chords_pitch": SongsMapper.get_mappings_size(CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH),
+            "chords_duration": SongsMapper.get_mappings_size(CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH),
+            "melody_pitch": SongsMapper.get_mappings_size(CONSTANTS.MELODY_PITCH_MAPPINGS_PATH),
+            "melody_duration": SongsMapper.get_mappings_size(CONSTANTS.MELODY_DURATION_MAPPINGS_PATH),
         }
     
     def get_model_settings(self):
         MODEL_SETTINGS = {
             "chords_transformer":
             {
-                "chord_dim": self.classes_size["chords"], 
-                "video_out_dim": 512, 
-                "num_encoder_layers": 8, 
-                "num_decoder_layers": 8, 
-                "nhead": 16, 
+                "chord_pitch_dim": self.classes_size["chords_pitch"], 
+                "chord_duration_dim": self.classes_size["chords_duration"], 
+                
                 "d_model": 256, 
                 "dim_feedforward": 2048,
+                "nhead": 16, 
+                "num_encoder_layers": 8, 
+                "num_decoder_layers": 8, 
+                
+                "video_out_dim": 512, 
+                "seq_len": CONSTANTS.DEFAULT_SEQUENCE_LENGTH
             },
             "melody_transformer":
             {
-                "melody_dim": self.classes_size["melody"], 
-                "video_out_dim": 512, 
-                "num_encoder_layers": 8, 
-                "num_decoder_layers": 8, 
-                "nhead": 16, 
+                "melody_pitch_dim": self.classes_size["melody_pitch"], 
+                "melody_duration_dim": self.classes_size["melody_duration"], 
+                
                 "d_model": 256, 
                 "dim_feedforward": 2048,
+                "nhead": 16, 
+                "num_encoder_layers": 8, 
+                "num_decoder_layers": 8, 
+                
+                "video_out_dim": 512, 
+                "seq_len": CONSTANTS.DEFAULT_SEQUENCE_LENGTH
             },
             "LR": 0.0001,
             "num_epochs": 15

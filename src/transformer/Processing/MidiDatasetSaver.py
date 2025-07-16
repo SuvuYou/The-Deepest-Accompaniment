@@ -5,12 +5,12 @@ import torch
 import numpy as np
 from Processing.SongsEncoder import SongsEncoder
 from Processing.SongsMapper import SongsMapper
+from Processing.const import CONSTANTS
 
 np.set_printoptions(threshold=sys.maxsize, linewidth=100000)
 
 class MidiDatasetSaver():
-    def __init__(self, videoProcessor, chord_sequence_lengths, melody_sequence_lengths, CONSTANTS):
-        self.CONSTANTS = CONSTANTS
+    def __init__(self, videoProcessor, chord_sequence_lengths, melody_sequence_lengths):
         self.videoProcessor = videoProcessor    
 
         batches_count_per_chord_sequence = [x - CONSTANTS.DEFAULT_SEQUENCE_LENGTH for x in chord_sequence_lengths]
@@ -20,17 +20,17 @@ class MidiDatasetSaver():
         self.melody_sequence_chunk_size = _find_greatest_common_divisor(batches_count_per_melody_sequence, upper_bound=50, lower_bound=30)
         
         self.classes_size = {
-            "melody_pitch": SongsMapper.get_mappings_size(self.CONSTANTS.MELODY_PITCH_MAPPINGS_PATH),
-            "melody_duration": SongsMapper.get_mappings_size(self.CONSTANTS.MELODY_DURATION_MAPPINGS_PATH),
-            "chords_pitch": SongsMapper.get_mappings_size(self.CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH),
-            "chords_duration": SongsMapper.get_mappings_size(self.CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH),
+            "melody_pitch": SongsMapper.get_mappings_size(CONSTANTS.MELODY_PITCH_MAPPINGS_PATH),
+            "melody_duration": SongsMapper.get_mappings_size(CONSTANTS.MELODY_DURATION_MAPPINGS_PATH),
+            "chords_pitch": SongsMapper.get_mappings_size(CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH),
+            "chords_duration": SongsMapper.get_mappings_size(CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH),
         }
         
         self.mappings = {
-            "melody_pitch_mapping": SongsMapper.load_mappings(self.CONSTANTS.MELODY_PITCH_MAPPINGS_PATH),
-            "melody_duration_mapping": SongsMapper.load_mappings(self.CONSTANTS.MELODY_DURATION_MAPPINGS_PATH),
-            "chord_pitch_mapping": SongsMapper.load_mappings(self.CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH),
-            "chord_duration_mapping": SongsMapper.load_mappings(self.CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH),
+            "melody_pitch_mapping": SongsMapper.load_mappings(CONSTANTS.MELODY_PITCH_MAPPINGS_PATH),
+            "melody_duration_mapping": SongsMapper.load_mappings(CONSTANTS.MELODY_DURATION_MAPPINGS_PATH),
+            "chord_pitch_mapping": SongsMapper.load_mappings(CONSTANTS.CHORDS_PITCH_MAPPINGS_PATH),
+            "chord_duration_mapping": SongsMapper.load_mappings(CONSTANTS.CHORDS_DURATION_MAPPINGS_PATH),
         }
 
         self.folders = self._get_numeric_subfolders(CONSTANTS.MAPPED_MIDI_DATA_FOLDER_PATH)
@@ -71,7 +71,7 @@ class MidiDatasetSaver():
         }
 
     def _process_video(self, folder_path, chords_length, melody_length):
-        video_path = f"{folder_path.replace(self.CONSTANTS.MAPPED_MIDI_DATA_FOLDER_PATH, self.CONSTANTS.VIDEO_DATA_FOLDER_PATH)}/original-180.mp4"
+        video_path = f"{folder_path.replace(CONSTANTS.MAPPED_MIDI_DATA_FOLDER_PATH, CONSTANTS.VIDEO_DATA_FOLDER_PATH)}/original-180.mp4"
         video, _ = self.videoProcessor.load_video_frames(video_path)
         
         chords_training_video = self.videoProcessor.process_video(video, target_video_length_in_frames=chords_length)
@@ -80,22 +80,22 @@ class MidiDatasetSaver():
         return chords_training_video, melody_training_video
 
     def _save_chords_training_sequence(self, data):
-        chords_training_video = data["chords_training_video"].to(self.CONSTANTS.DEVICE)
+        chords_training_video = data["chords_training_video"].to(CONSTANTS.DEVICE)
         
         frames_count = chords_training_video.shape[0]
         frames_per_data_item = frames_count // data["chords_length"]
-        num_sequences = data["chords_length"] - self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH
+        num_sequences = data["chords_length"] - CONSTANTS.DEFAULT_SEQUENCE_LENGTH
         num_chunks = num_sequences // self.chord_sequence_chunk_size
 
         for chunk_index in range(num_chunks):
             self._save_chords_data_to_chunk(chunk_index, data, frames_per_data_item)
             
     def _save_melody_training_sequence(self, data):
-        melody_training_video = data["melody_training_video"].to(self.CONSTANTS.DEVICE)
+        melody_training_video = data["melody_training_video"].to(CONSTANTS.DEVICE)
         
         frames_count = melody_training_video.shape[0]
         frames_per_data_item = frames_count // data["melody_length"]
-        num_sequences = data["melody_length"] - self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH
+        num_sequences = data["melody_length"] - CONSTANTS.DEFAULT_SEQUENCE_LENGTH
         num_chunks = num_sequences // self.melody_sequence_chunk_size
 
         for chunk_index in range(num_chunks):
@@ -104,8 +104,8 @@ class MidiDatasetSaver():
     def _save_chords_data_to_chunk(self, chunk_index, data, frames_per_data_item):
         print(chunk_index, '- chunk')
         
-        chords_data_save_path = f"{self.CONSTANTS.CHORDS_DATA_CHUNKS_SAVE_PATH}/{self.current_total_chords_chunks}.pt"
-        chords_video_data_save_path = f"{self.CONSTANTS.CHORDS_VIDEO_CHUNKS_SAVE_PATH}/{self.current_total_chords_chunks}.pt"
+        chords_data_save_path = f"{CONSTANTS.CHORDS_DATA_CHUNKS_SAVE_PATH}/{self.current_total_chords_chunks}.pt"
+        chords_video_data_save_path = f"{CONSTANTS.CHORDS_VIDEO_CHUNKS_SAVE_PATH}/{self.current_total_chords_chunks}.pt"
 
         sequence_data = {
             "chords_pitches": [],
@@ -125,8 +125,8 @@ class MidiDatasetSaver():
     def _save_melody_data_to_chunk(self, chunk_index, data, frames_per_data_item):
         print(chunk_index, '- chunk')
         
-        melody_save_path = f"{self.CONSTANTS.MELODY_DATA_CHUNKS_SAVE_PATH}/{self.current_total_melody_chunks}.pt"
-        melody_video_save_path = f"{self.CONSTANTS.MELODY_VIDEO_CHUNKS_SAVE_PATH}/{self.current_total_melody_chunks}.pt"
+        melody_save_path = f"{CONSTANTS.MELODY_DATA_CHUNKS_SAVE_PATH}/{self.current_total_melody_chunks}.pt"
+        melody_video_save_path = f"{CONSTANTS.MELODY_VIDEO_CHUNKS_SAVE_PATH}/{self.current_total_melody_chunks}.pt"
 
         sequence_data = {
             "melody_pitches": [],
@@ -146,20 +146,20 @@ class MidiDatasetSaver():
     def _prepare_chords_chunk_data(self, chunk_index, data, frames_per_data_item, sequence_data):
         for i in range(self.chord_sequence_chunk_size):
             idx = i + (chunk_index * self.chord_sequence_chunk_size)
-            sequence_data["chords_pitches"].append(data["chords_pitch_tokens"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
-            sequence_data["chords_duration"].append(data["chords_duration_tokens"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
+            sequence_data["chords_pitches"].append(data["chords_pitch_tokens"][idx:idx + CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
+            sequence_data["chords_duration"].append(data["chords_duration_tokens"][idx:idx + CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             
-            frames = data["chords_training_video"][(idx * frames_per_data_item): (idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH) * frames_per_data_item]
-            sequence_data["video"].append(frames[[0, int(self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH / 2)]])
+            frames = data["chords_training_video"][(idx * frames_per_data_item): (idx + CONSTANTS.DEFAULT_SEQUENCE_LENGTH) * frames_per_data_item]
+            sequence_data["video"].append(frames[[0, int(CONSTANTS.DEFAULT_SEQUENCE_LENGTH / 2)]])
             
     def _prepare_melody_chunk_data(self, chunk_index, data, frames_per_data_item, sequence_data):
         for i in range(self.melody_sequence_chunk_size):
             idx = i + (chunk_index * self.melody_sequence_chunk_size)
-            sequence_data["melody_pitches"].append(data["melody_pitch_tokens"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
-            sequence_data["melody_duration"].append(data["melody_duration_tokens"][idx:idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
+            sequence_data["melody_pitches"].append(data["melody_pitch_tokens"][idx:idx + CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
+            sequence_data["melody_duration"].append(data["melody_duration_tokens"][idx:idx + CONSTANTS.DEFAULT_SEQUENCE_LENGTH])
             
-            frames = data["melody_training_video"][(idx * frames_per_data_item): (idx + self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH) * frames_per_data_item]
-            sequence_data["video"].append(frames[[0, int(self.CONSTANTS.DEFAULT_SEQUENCE_LENGTH / 2)]])
+            frames = data["melody_training_video"][(idx * frames_per_data_item): (idx + CONSTANTS.DEFAULT_SEQUENCE_LENGTH) * frames_per_data_item]
+            sequence_data["video"].append(frames[[0, int(CONSTANTS.DEFAULT_SEQUENCE_LENGTH / 2)]])
 
     def _one_hot_encode_chords_data(self, sequence_data):
         return {
@@ -167,7 +167,6 @@ class MidiDatasetSaver():
             'chords_duration': torch.nn.functional.one_hot(torch.tensor(sequence_data["chords_duration"]), num_classes=self.classes_size['chords_duration']), 
         }
 
-        
     def _one_hot_encode_melody_data(self, sequence_data):
         return {
             'melody_pitches': torch.nn.functional.one_hot(torch.tensor(sequence_data["melody_pitches"]), num_classes=self.classes_size['melody_pitch']),

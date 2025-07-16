@@ -32,7 +32,7 @@ class MetricsManager:
         metrics["class_correct"].append(class_correct)
         metrics["class_total"].append(class_total)
         
-    def save_metrics(self, metrics, is_chords):
+    def save_metrics(self, is_chords):
         def convert_to_serializable(obj):
             # Recursively convert numpy arrays and tensors to lists
             if isinstance(obj, np.ndarray):
@@ -46,7 +46,7 @@ class MetricsManager:
             else:
                 return obj  # Leave other types untouched
 
-        serializable_metrics_log = convert_to_serializable(metrics)
+        serializable_metrics_log = convert_to_serializable(is_chords and self.chords_metrics_log or self.melody_metrics_log)
         
         with open(CONSTANTS.CHORDS_METRICS_SAVE_FILE_PATH if is_chords else CONSTANTS.MELODY_METRICS_SAVE_FILE_PATH, "w") as f:
             json.dump(serializable_metrics_log, f)
