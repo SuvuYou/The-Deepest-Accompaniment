@@ -3,88 +3,37 @@ import os
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from Processing.const import CONSTANTS
+from Processing.SongsMapper import SongsMapper
+from Models.MetricsManager import MetricsManager
+from Models.ClassWeightManager import ClassWeightManager
 
 class Trainer:
-    def __init__(self, chords_model, melody_model, model_settings, constants, starting_weights_idx=-1):
+    def __init__(self, chords_model, melody_model, model_settings, starting_weights_idx=-1):
         self.save_weight_idx = starting_weights_idx
         self.model_settings = model_settings
-        self.constants = constants
         
         self.chords_model = chords_model
         self.melody_model = melody_model
         
-        self.chords_metrics_log = {
-            "chords_accuracy": [],
-            "chords_loss": [],
-            "chords_class_correct": [],
-            "chords_class_total": [],
-        }
-        
-        self.melody_metrics_log = {
-            "melody_accuracy": [],
-            "melody_loss": [],
-            "melody_class_correct": [],
-            "melody_class_total": []
-        }
+        self.metrics_manager = MetricsManager()
+        self.class_weight_manager = ClassWeightManager()
         
         self._load_model_weights_if_needed()
-        self._load_mappings()
-        self._init_class_weights()
 
     def _load_model_weights_if_needed(self):
         if self.save_weight_idx != -1:
-            chords_weights_path = self.constants.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
-            melody_weights_path = self.constants.DEFAULT_MELODY_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
+            chords_weights_path = CONSTANTS.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
+            melody_weights_path = CONSTANTS.DEFAULT_MELODY_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(self.save_weight_idx)
             
             if self.chords_model:
                 self.chords_model.load_state_dict(torch.load(chords_weights_path))
             
             if self.melody_model:
                 self.melody_model.load_state_dict(torch.load(melody_weights_path))
-
-    def _load_mappings(self):
-        with open(self.constants.CHORDS_MAPPINGS_PATH, "r") as fp:
-            self.chords_mappings = json.load(fp)
             
-        with open(self.constants.MELODY_MAPPINGS_PATH, "r") as fp:
-            self.melody_mappings = json.load(fp)
-            
-    def _init_class_weights(self):
-        self.chords_class_weights = self._compute_class_weights(self.chords_mappings)
-        self.melody_class_weights = self._compute_class_weights(self.melody_mappings)
-        
-        self._print_class_weights(self.chords_class_weights, self.chords_mappings["mappings"], "Initial chords_class_weights weights")
-        self._print_class_weights(self.melody_class_weights, self.melody_mappings["mappings"], "Initial melody_class_weights weights")
-    
-    def _compute_class_weights(self, mappings):
-        symbol_counts = np.array(list(mappings['counter']['mapped_symbols'].values()))
-        class_weights = torch.tensor(sum(symbol_counts) / (len(symbol_counts) * symbol_counts), dtype=torch.float32)
-        return class_weights
-
-    def _print_class_weights(self, weights, mappings, message):
-        print(message)
-        for idx, weight in enumerate(weights):
-            symbol = list(mappings.values())[idx]
-            print(f"Symbol {symbol}: {weight}")
-
-    def update_melody_class_weights(self, updates):
-        updated_weights = self.melody_class_weights.clone()
-        for symbol, percentage in updates.items():
-            mapped_value = self.melody_mappings['mappings'][symbol]
-            updated_weights[mapped_value] *= (0.01 * percentage)
-        self._print_class_weights(updated_weights, self.melody_mappings["mappings"], "Updated melody class weights")
-        self.melody_class_weights = updated_weights
-        
-    def update_chords_class_weights(self, updates):
-        updated_weights = self.chords_class_weights.clone()
-        for symbol, percentage in updates.items():
-            mapped_value = self.chords_mappings['mappings'][symbol]
-            updated_weights[mapped_value] *= (0.01 * percentage)
-        self._print_class_weights(updated_weights, self.chords_mappings["mappings"], "Updated chords class weights")
-        self.chords_class_weights = updated_weights
-    
     def train_melody(self, data_loader):
-        melody_criterion = torch.nn.CrossEntropyLoss(weight=self.melody_class_weights).to(self.constants.DEVICE)
+        melody_criterion = torch.nn.CrossEntropyLoss(weight=self.melody_class_weights).to(CONSTANTS.DEVICE)
         melody_optimizer = torch.optim.Adam(self.melody_model.parameters(), lr=self.model_settings["LR"])
         
         num_epochs = self.model_settings['num_epochs']
@@ -93,17 +42,14 @@ class Trainer:
             melody_accuracy, melody_loss, melody_class_correct, melody_class_total = self._train_epoch_melody(data_loader, melody_criterion, melody_optimizer)
             
             print(f"Epoch - {epoch}: Melody accuracy - {melody_accuracy}")
-            
-            self.melody_metrics_log["melody_accuracy"].append(melody_accuracy)
-            self.melody_metrics_log["melody_loss"].append(melody_loss)
-            self.melody_metrics_log["melody_class_correct"].append(melody_class_correct)
-            self.melody_metrics_log["melody_class_total"].append(melody_class_total)
+
+            self._log_metrics(self.melody_metrics_log, melody_accuracy, melody_loss, melody_class_correct, melody_class_total)
             
             self._save_metrics(self.melody_metrics_log, is_chords=False)
             self._save_melody_model_weights()
     
     def train_chords(self, data_loader):
-        chords_criterion = torch.nn.CrossEntropyLoss(weight=self.chords_class_weights).to(self.constants.DEVICE)
+        chords_criterion = torch.nn.CrossEntropyLoss(weight=self.chords_class_weights).to(CONSTANTS.DEVICE)
         chords_optimizer = torch.optim.Adam(self.chords_model.parameters(), lr=self.model_settings["LR"])
               
         num_epochs = self.model_settings['num_epochs']
@@ -113,10 +59,7 @@ class Trainer:
             
             print(f"Epoch - {epoch}: Chords accuracy - {chords_accuracy}")
             
-            self.chords_metrics_log["chords_accuracy"].append(chords_accuracy)
-            self.chords_metrics_log["chords_loss"].append(chords_loss)
-            self.chords_metrics_log["chords_class_correct"].append(chords_class_correct)
-            self.chords_metrics_log["chords_class_total"].append(chords_class_total)
+            self._log_metrics(self.chords_metrics_log, chords_accuracy, chords_loss, chords_class_correct, chords_class_total)
             
             self._save_metrics(self.chords_metrics_log, is_chords=True)
             self._save_chords_model_weights()
@@ -190,8 +133,6 @@ class Trainer:
         melody_accuracy = (total_melody_correct / total_melody_samples) * 100
         return melody_accuracy, total_melody_loss, melody_class_correct, melody_class_total
 
-        
-
     def _compute_accuracy(self, output, target, class_correct, class_total):
         if target.ndimension() > 1:
             target = torch.argmax(target, dim=1)
@@ -205,112 +146,21 @@ class Trainer:
         
         return correct.sum().item()
 
-    def _save_metrics(self, metrics, is_chords):
-        def convert_to_serializable(obj):
-            # Recursively convert numpy arrays and tensors to lists
-            if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            elif isinstance(obj, torch.Tensor):
-                return obj.detach().cpu().tolist()  # Convert PyTorch tensor to list
-            elif isinstance(obj, list):
-                return [convert_to_serializable(x) for x in obj]
-            elif isinstance(obj, dict):
-                return {k: convert_to_serializable(v) for k, v in obj.items()}
-            else:
-                return obj  # Leave other types untouched
-
-        serializable_metrics_log = convert_to_serializable(metrics)
-        
-        with open(self.constants.CHORDS_METRICS_SAVE_FILE_PATH if is_chords else self.constants.MELODY_METRICS_SAVE_FILE_PATH, "w") as f:
-            json.dump(serializable_metrics_log, f)
-
     def _to_device(self, *args):
-        return [arg.to(self.constants.DEVICE) for arg in args]
+        return [arg.to(CONSTANTS.DEVICE) for arg in args]
 
     def _save_chords_model_weights(self):
         self.save_weight_idx += 1
-        weights_folder = self.constants.DEFAULT_MODEL_WEIGHTS_FOLDER_NAME(idx=self.save_weight_idx)
+        weights_folder = CONSTANTS.DEFAULT_MODEL_WEIGHTS_FOLDER_NAME(idx=self.save_weight_idx)
         os.makedirs(weights_folder, exist_ok=True)
         
-        chords_weights_path = self.constants.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
+        chords_weights_path = CONSTANTS.DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
         torch.save(self.chords_model.state_dict(), chords_weights_path)
         
     def _save_melody_model_weights(self):
         self.save_weight_idx += 1
-        weights_folder = self.constants.DEFAULT_MODEL_WEIGHTS_FOLDER_NAME(idx=self.save_weight_idx)
+        weights_folder = CONSTANTS.DEFAULT_MODEL_WEIGHTS_FOLDER_NAME(idx=self.save_weight_idx)
         os.makedirs(weights_folder, exist_ok=True)
          
-        melody_weights_path = self.constants.DEFAULT_MELODY_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
+        melody_weights_path = CONSTANTS.DEFAULT_MELODY_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME(idx=self.save_weight_idx)
         torch.save(self.melody_model.state_dict(), melody_weights_path)
-
-    def _plot_metrics_from_file(self):
-        with open(self.constants.MELODY_METRICS_SAVE_FILE_PATH, "r") as f:
-            melody_metrics = json.load(f)
-            
-        with open(self.constants.CHORDS_METRICS_SAVE_FILE_PATH, "r") as f:
-            chords_metrics = json.load(f)
-        
-        epochs = range(1, len(melody_metrics["melody_accuracy"]) + 1)
-        
-        # Accuracy plots
-        plt.figure()
-        plt.plot(epochs, melody_metrics["melody_accuracy"], label="Melody Accuracy")
-        plt.plot(epochs, chords_metrics["chords_accuracy"], label="Chords Accuracy")
-        plt.title("Model Accuracy Over Epochs")
-        plt.xlabel("Epochs")
-        plt.ylabel("Accuracy (%)")
-        plt.legend()
-        plt.savefig("metrics/accuracy_plot.png")
-
-        # Loss plots
-        plt.figure()
-        plt.plot(epochs, melody_metrics["melody_loss"], label="Melody Loss")
-        plt.plot(epochs, chords_metrics["chords_loss"], label="Chords Loss")
-        plt.title("Model Loss Over Epochs")
-        plt.xlabel("Epochs")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.savefig("metrics/loss_plot.png")
-
-        self._plot_class_correctness(melody_metrics, chords_metrics)
-
-        print("Plots saved as files.")
-
-    def _plot_class_correctness(self, melody_metrics, chords_metrics):
-        melody_labels = {v: k for k, v in self.melody_mappings['mappings'].items()}
-        chords_labels = {v: k for k, v in self.chords_mappings['mappings'].items()}
-        
-        melody_class_correct = melody_metrics["melody_class_correct"]
-        melody_class_total = melody_metrics["melody_class_total"]
-        chords_class_correct = chords_metrics["chords_class_correct"]
-        chords_class_total = chords_metrics["chords_class_total"]
-
-        for symbol_idx, symbol in melody_labels.items():
-            correct_counts = [epoch[symbol_idx] for epoch in melody_class_correct]
-            total_counts = [epoch[symbol_idx] for epoch in melody_class_total]
-            
-            plt.figure()
-            plt.plot(range(1, len(correct_counts) + 1), correct_counts, label="Correct Predictions")
-            plt.plot(range(1, len(total_counts) + 1), total_counts, label="Total Elements")
-            plt.title(f"Melody Symbol: {symbol}")
-            plt.xlabel("Epoch")
-            plt.ylabel("Count")
-            plt.legend()
-            plt.savefig(f"metrics/melody_symbol_{symbol.replace('/', '_')}.png")
-            plt.close()
-
-        for symbol_idx, symbol in chords_labels.items():
-            correct_counts = [epoch[symbol_idx] for epoch in chords_class_correct]
-            total_counts = [epoch[symbol_idx] for epoch in chords_class_total]
-            
-            plt.figure()
-            plt.plot(range(1, len(correct_counts) + 1), correct_counts, label="Correct Predictions")
-            plt.plot(range(1, len(total_counts) + 1), total_counts, label="Total Elements")
-            plt.title(f"Chord Symbol: {symbol}")
-            plt.xlabel("Epoch")
-            plt.ylabel("Count")
-            plt.legend()
-            plt.savefig(f"metrics/chord_symbol_{symbol.replace('/', '_')}.png")
-            plt.close()
-
-        print("Plots saved for all symbols.")
