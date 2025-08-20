@@ -45,9 +45,9 @@ class Trainer:
     def train_chords(self, data_loader):
         chords_pitch_class_weights, chords_duration_class_weights = self.class_weight_manager.get_chords_class_weights()
         
-        pitch_loss_fn = torch.nn.CrossEntropyLoss(weight=chords_pitch_class_weights).to(CONSTANTS.DEVICE)
-        duration_loss_fn = torch.nn.CrossEntropyLoss(weight=chords_duration_class_weights).to(CONSTANTS.DEVICE)
-        optimizer = torch.optim.Adam(self.melody_model.parameters(), lr=self.model_settings["LR"])
+        pitch_loss_fn = torch.nn.CrossEntropyLoss().to(CONSTANTS.DEVICE)
+        duration_loss_fn = torch.nn.CrossEntropyLoss().to(CONSTANTS.DEVICE)
+        optimizer = torch.optim.Adam(self.chords_model.parameters(), lr=self.model_settings["LR"])
         num_epochs = self.model_settings["num_epochs"]
 
         for epoch in range(num_epochs):     
@@ -70,45 +70,65 @@ class Trainer:
         model.train()
         total_pitch_correct = total_duration_correct = total_tokens = 0
         total_loss = 0.0
-
+        
         for batch_idx, batch in enumerate(data_loader):
             print(f"Processing batch {batch_idx}")
             
             pitch_tokens, dur_tokens, video = self._to_device(*batch)
             
-            # Flatten the hierarchical structure of batches (first two dimentions are both batches: one from DataSoader and one from DataSaver by chunks)
+            # Flatten hierarchical structure
             pitch_tokens = pitch_tokens.reshape(-1, pitch_tokens.size(2), pitch_tokens.size(3))
             dur_tokens = dur_tokens.reshape(-1, dur_tokens.size(2), dur_tokens.size(3))
             video = video.reshape(-1, video.size(2), video.size(3), video.size(4), video.size(5))
-
-            print(pitch_tokens.shape, dur_tokens.shape, video.shape)
-            output_pitch, output_dur = model(pitch_tokens, dur_tokens, video)
             
-            pitch_target = torch.argmax(pitch_tokens, dim=-1)
-            duration_target = torch.argmax(dur_tokens, dim=-1)
+            pitch_tokens = torch.argmax(pitch_tokens, -1)
+            dur_tokens = torch.argmax(dur_tokens, -1)
+
+            input_pitch_seq = pitch_tokens[:, :-1]    # [B, T-1]
+            target_pitch_seq = pitch_tokens[:, 1:]    # [B, T-1]
+
+            input_duration_seq = dur_tokens[:, :-1]    # [B, T-1]
+            target_duration_seq = dur_tokens[:, 1:]    # [B, T-1]
+
+            output_pitch, output_duration = model(input_pitch_seq, input_duration_seq)     # [B, T-1, dim]
+            output_pitch = output_pitch.reshape(-1, output_pitch.size(-1))   # [B*(T-1), pitch_dim]
+            output_duration = output_duration.reshape(-1, output_duration.size(-1))   # [B*(T-1), dur_dim]
+
+            target_pitch_seq = target_pitch_seq.reshape(-1)    # [B*(T-1)]
+            target_duration_seq = target_duration_seq.reshape(-1)
 
             optimizer.zero_grad()
-
-            output_pitch = output_pitch.reshape(-1, output_pitch.size(-1))  # [B*T, pitch_dim]
-            output_dur = output_dur.reshape(-1, output_dur.size(-1))        # [B*T, dur_dim]
-
-            pitch_target = pitch_target.reshape(-1)  # [B*T]
-            duration_target = duration_target.reshape(-1)
-
-            loss_pitch = pitch_loss_fn(output_pitch, pitch_target)
-            loss_dur = duration_loss_fn(output_dur, duration_target)
+            loss_pitch = pitch_loss_fn(output_pitch, target_pitch_seq)
+            loss_dur   = duration_loss_fn(output_duration, target_duration_seq)
             loss = loss_pitch + loss_dur
+
+            print(f"Pitch loss: {loss_pitch.item():.4f}, Duration loss: {loss_dur.item():.4f}, Total loss: {loss.item():.4f}")
             
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
-            total_tokens += pitch_target.size(0)
-            total_pitch_correct += (output_pitch.argmax(dim=-1) == pitch_target).sum().item()
-            total_duration_correct += (output_dur.argmax(dim=-1) == duration_target).sum().item()
 
-        acc_pitch = 100.0 * total_pitch_correct / total_tokens
-        acc_dur = 100.0 * total_duration_correct / total_tokens
+            # Accuracy for pitch
+            preds_pitch = output_pitch.argmax(dim=-1)
+            total_pitch_correct += (preds_pitch == target_pitch_seq).sum().item()
+            total_tokens += target_pitch_seq.size(0)
+
+            # Accuracy for duration
+            preds_dur = output_duration.argmax(dim=-1)
+            total_duration_correct += (preds_dur == target_duration_seq).sum().item()
+            
+            if batch_idx % 50 == 0:  # only print every N batches to avoid spam
+                n_show = 10
+                print("\nSample predictions:")
+                for i in range(n_show):
+                    print(f" Pitch pred: {preds_pitch[i].item():3d} | target: {target_pitch_seq[i].item():3d} "
+                        f" || Duration pred: {preds_dur[i].item():3d} | target: {target_duration_seq[i].item():3d}")
+                print()
+
+        # After loop
+        acc_pitch = 100.0 * total_pitch_correct / total_tokens if total_tokens > 0 else 0
+        acc_dur   = 100.0 * total_duration_correct / total_tokens if total_tokens > 0 else 0
         
         return acc_pitch, acc_dur, total_loss
 
