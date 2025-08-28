@@ -64,12 +64,18 @@ class Trainer:
             # self.metrics_manager.log_chords_metrics(chords_accuracy, chords_loss, chords_class_correct, chords_class_total)
             
             # self.metrics_manager.save_metrics(is_chords=True)
-            # self.model_weights_manager.save_chords_model_weights()
+            self.model_weights_manager.save_chords_model_weights()
 
     def _train_epoch_model(self, model, data_loader, pitch_loss_fn, duration_loss_fn, optimizer):
         model.train()
         total_pitch_correct = total_duration_correct = total_tokens = 0
         total_loss = 0.0
+        
+        # Track per-class stats
+        pitch_preds_hist = []
+        pitch_targets_hist = []
+        dur_preds_hist = []
+        dur_targets_hist = []
         
         for batch_idx, batch in enumerate(data_loader):
             print(f"Processing batch {batch_idx}")
@@ -118,6 +124,12 @@ class Trainer:
             preds_dur = output_duration.argmax(dim=-1)
             total_duration_correct += (preds_dur == target_duration_seq).sum().item()
             
+            # Collect histograms for per-class stats
+            pitch_preds_hist.append(preds_pitch.cpu())
+            pitch_targets_hist.append(target_pitch_seq.cpu())
+            dur_preds_hist.append(preds_dur.cpu())
+            dur_targets_hist.append(target_duration_seq.cpu())
+            
             if batch_idx % 50 == 0:  # only print every N batches to avoid spam
                 n_show = 10
                 print("\nSample predictions:")
@@ -130,6 +142,39 @@ class Trainer:
         acc_pitch = 100.0 * total_pitch_correct / total_tokens if total_tokens > 0 else 0
         acc_dur   = 100.0 * total_duration_correct / total_tokens if total_tokens > 0 else 0
         
+        # ---- per-class stats ----
+        pitch_preds_hist = torch.cat(pitch_preds_hist)
+        pitch_targets_hist = torch.cat(pitch_targets_hist)
+        dur_preds_hist = torch.cat(dur_preds_hist)
+        dur_targets_hist = torch.cat(dur_targets_hist)
+
+        num_pitch_classes = output_pitch.size(-1)
+        num_dur_classes   = output_duration.size(-1)
+
+        print("\nPitch class distribution (pred vs target %):")
+        for c in range(num_pitch_classes):
+            pred_count   = (pitch_preds_hist == c).sum().item()
+            target_count = (pitch_targets_hist == c).sum().item()
+            correct      = ((pitch_preds_hist == c) & (pitch_targets_hist == c)).sum().item()
+
+            pred_pct   = 100.0 * pred_count / len(pitch_preds_hist)
+            target_pct = 100.0 * target_count / len(pitch_targets_hist)
+            acc_class  = 100.0 * correct / target_count if target_count > 0 else 0
+
+            print(f" Class {c:2d}: Pred {pred_pct:6.2f}% | Target {target_pct:6.2f}% | Acc {acc_class:6.2f}%")
+
+        print("\nDuration class distribution (pred vs target %):")
+        for c in range(num_dur_classes):
+            pred_count   = (dur_preds_hist == c).sum().item()
+            target_count = (dur_targets_hist == c).sum().item()
+            correct      = ((dur_preds_hist == c) & (dur_targets_hist == c)).sum().item()
+
+            pred_pct   = 100.0 * pred_count / len(dur_preds_hist)
+            target_pct = 100.0 * target_count / len(dur_targets_hist)
+            acc_class  = 100.0 * correct / target_count if target_count > 0 else 0
+
+            print(f" Class {c:2d}: Pred {pred_pct:6.2f}% | Target {target_pct:6.2f}% | Acc {acc_class:6.2f}%")
+
         return acc_pitch, acc_dur, total_loss
 
     def _to_device(self, *args):

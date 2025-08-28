@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # SongsMapper.plot_mappings_data(chord_pitch_mapping, title="Chord Pitch Distribution")
     # SongsMapper.plot_mappings_data(chord_duration_mapping, title="Chord Duration Distribution")
 
-    dataSaver = MidiDatasetSaver(videoProcessor, chords_lengths, melody_lengths, CONSTANTS = CONSTANTS)
+    dataSaver = MidiDatasetSaver(videoProcessor, chords_lengths, melody_lengths)
 
     dataSaver.save_training_data()
     

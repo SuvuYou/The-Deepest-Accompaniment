@@ -43,6 +43,8 @@ class MidiDatasetSaver():
             for folder in folders if _has_only_numbers(folder)
         ]
         
+        print(f"{subfolders}")
+        
         return subfolders
 
     def save_training_data(self):

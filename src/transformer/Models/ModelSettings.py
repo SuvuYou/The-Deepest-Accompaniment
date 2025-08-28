@@ -17,21 +17,21 @@ class ModelSettings:
                 "chord_pitch_dim": self.classes_size["chords_pitch"], 
                 "chord_duration_dim": self.classes_size["chords_duration"], 
                 
-                "d_model": 256, 
+                "d_model": 1024, 
                 "dim_feedforward": 2048,
                 "nhead": 16, 
-                "num_encoder_layers": 8, 
-                "num_decoder_layers": 8, 
+                # "num_encoder_layers": 8, 
+                "num_decoder_layers": 16, 
                 
                 "video_out_dim": 512, 
-                "seq_len": CONSTANTS.DEFAULT_SEQUENCE_LENGTH
+                "seq_len": CONSTANTS.DEFAULT_SEQUENCE_LENGTH - 1
             },
             "melody_transformer":
             {
                 "melody_pitch_dim": self.classes_size["melody_pitch"], 
                 "melody_duration_dim": self.classes_size["melody_duration"], 
                 
-                "d_model": 256, 
+                "d_model": 512, 
                 "dim_feedforward": 2048,
                 "nhead": 16, 
                 "num_encoder_layers": 8, 
@@ -40,8 +40,8 @@ class ModelSettings:
                 "video_out_dim": 512, 
                 "seq_len": CONSTANTS.DEFAULT_SEQUENCE_LENGTH
             },
-            "LR": 0.0001,
-            "num_epochs": 15
+            "LR": 1e-5,
+            "num_epochs": 10
         }
         
         return MODEL_SETTINGS

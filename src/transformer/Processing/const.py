@@ -20,7 +20,7 @@ MELODY_DATA_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/melody
 CHORDS_VIDEO_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/chords/tensors_video"
 MELODY_VIDEO_CHUNKS_SAVE_PATH = f"{RAW_DATASET_PATH}/6_stored_chunked_data/melody/tensors_video"
 
-DEFAULT_SEQUENCE_LENGTH = 24
+DEFAULT_SEQUENCE_LENGTH = 128
 DEFAULT_MODEL_WEIGHTS_FOLDER_NAME = lambda idx: f"weights/{idx}"
 DEFAULT_MELODY_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME = lambda idx: f"weights/{idx}/melody_transformer_model_weights.pth"
 DEFAULT_CHORDS_TRANSFORMER_MODEL_WEIGHTS_FILE_NAME = lambda idx: f"weights/{idx}/chords_transformer_model_weights.pth"

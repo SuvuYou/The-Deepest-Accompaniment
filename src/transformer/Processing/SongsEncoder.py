@@ -8,7 +8,6 @@ class SongsEncoder:
         self.save_path = mapped_midi_data_folder_path
         self.acceptable_durations = acceptable_durations
         self.sorted_chords_list = sorted_chords_list
-        self.time_step = self.acceptable_durations[0]
         self.black_keys_pitches = [1, 3, 6, 8, 10]
 
     def load_encoded_txt_songs(self, type):
@@ -124,9 +123,8 @@ class SongsEncoder:
             else:
                 continue
                         
-            steps = int(event_duration / self.time_step)
             pitch_tokens.append(symbol)
-            duration_tokens.append(steps)
+            duration_tokens.append(event_duration)
         
         return " ".join(map(str, pitch_tokens)), " ".join(map(str, duration_tokens))
 
@@ -149,9 +147,8 @@ class SongsEncoder:
             else:
                 continue
             
-            steps = int(event_duration / self.time_step)
             pitch_tokens.append(symbol)
-            duration_tokens.append(steps)
+            duration_tokens.append(event_duration)
 
         return " ".join(map(str, pitch_tokens)), " ".join(map(str, duration_tokens))
     
